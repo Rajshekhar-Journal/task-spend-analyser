@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#ffffff">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <title>My Tasks & Spends</title>
 <style>
 :root{--bg:#fff;--ink:#111;--mute:#8a8a8a;--line:#ececec;--acc:#111;--bad:#b42318}
@@ -403,6 +407,9 @@ $("xl").onclick=async()=>{
     const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();msg("Exported "+name);
   }catch(e){msg("Export failed")}
 };
+
+// Offline support (only where service workers are allowed: hosted over https)
+try{if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 
 function render(){({tasks:renderTasks,spend:renderSpend,invest:renderInvest,settings:renderSettings})[tab]()}
 render();
