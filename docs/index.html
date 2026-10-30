@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>My Tasks & Spends</title>
+<style>
+:root{--bg:#fff;--ink:#111;--mute:#8a8a8a;--line:#ececec;--acc:#111;--bad:#b42318}
+@media(prefers-color-scheme:dark){:root{--bg:#0e0e0e;--ink:#f2f2f2;--mute:#7d7d7d;--line:#222;--acc:#f2f2f2;--bad:#f97066}}
+*{box-sizing:border-box}
+:root{color-scheme:light dark}
+select option{background:var(--bg);color:var(--ink)}
+input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Roboto,sans-serif;padding-bottom:64px}
+header{padding:20px 4px 8px;font-weight:600;font-size:28px;letter-spacing:-.02em}
+.wrap{max-width:520px;margin:0 auto;padding:0 20px}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:18px;background:var(--bg);border-top:1px solid var(--line);z-index:5}
+.tabs button{padding:16px 8px;border:0;background:none;color:var(--mute);font-size:15px;cursor:pointer}
+.tabs button.on{color:var(--ink);font-weight:600}
+.card{margin:22px 0}
+h3{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}
+input,select{font:inherit;color:var(--ink);background:none;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:10px 0;width:100%;outline:none}
+input:focus,select:focus{border-color:var(--ink)}
+.row{display:flex;gap:16px;margin-top:4px}.row>*{min-width:0}
+button.b{font:inherit;background:none;color:var(--ink);border:1px solid var(--ink);border-radius:8px;padding:10px;width:100%;margin-top:12px;cursor:pointer}
+button.ghost{background:none;border:0;color:var(--mute);font-size:16px;padding:4px 6px;cursor:pointer}
+.chips{display:flex;gap:16px;overflow-x:auto;padding:4px 0 8px}
+.chip{flex:none;padding:2px 0;border:0;border-bottom:2px solid transparent;background:none;color:var(--mute);font-size:14px;cursor:pointer}
+.chip.on{color:var(--ink);border-color:var(--ink)}
+.item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+.item:last-child{border:0}
+.item .t{flex:1;min-width:0;word-break:break-word}
+.item small{display:block;color:var(--mute);font-size:13px}
+.done .t{text-decoration:line-through;color:var(--mute)}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;padding:0}
+.pill{font-size:12px;color:var(--ink);font-weight:600}
+.pill.hi:before{content:"! "}
+.over{color:var(--bad)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stats b{display:block;font-size:22px;font-weight:600;letter-spacing:-.02em}.stats span{font-size:12px;color:var(--mute)}
+.bar{height:3px;background:var(--line);margin:8px 0 4px}
+.bar i{display:block;height:100%;background:var(--ink)}
+.amt{font-weight:500;white-space:nowrap}
+.ins{padding:0;list-style:none;color:var(--mute);font-size:14px}
+.ins li{margin:4px 0}
+.empty{color:var(--mute);padding:14px 0}
+.hide{display:none}
+.sw{display:none}
+.link{background:none;border:0;color:var(--mute);font-size:13px;padding:8px 0;cursor:pointer;text-decoration:underline}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header id="title">Tasks</header>
+
+<section id="p-tasks">
+  <div class="card">
+    <input id="tt" placeholder="Add a task" maxlength="200">
+    <div class="row">
+      <input id="td" type="date">
+      <select id="tp"><option value="0">Normal</option><option value="1">High</option></select>
+    </div>
+    <div class="row"><button class="b" id="addT">Add task</button></div>
+  </div>
+  <div class="chips" id="tf"></div>
+  <div class="card" id="tl"></div>
+</section>
+
+<section id="p-spend" class="hide">
+  <div class="card">
+    <h3>Add expense</h3>
+    <div class="row"><input id="sa" type="number" inputmode="decimal" placeholder="Amount ₹" min="0" step="0.01"><input id="sd" type="date"></div>
+    <div class="row"><select id="sc"></select><input id="sn" placeholder="Note (optional)" maxlength="80"></div>
+    <div class="row"><button class="b" id="addS">Add expense</button></div>
+  </div>
+
+  <div class="card">
+    <div class="chips" id="pk"></div>
+    <div class="row" id="pnav" style="align-items:center;justify-content:space-between">
+      <button class="ghost" id="pPrev" aria-label="Previous">‹</button>
+      <span id="pLabel" style="font-weight:500"></span>
+      <button class="ghost" id="pNext" aria-label="Next">›</button>
+    </div>
+    <div class="row hide" id="prange"><input id="rFrom" type="date"><input id="rTo" type="date"></div>
+    <div class="stats" style="margin-top:14px"><div><b id="sTot">₹0</b><span>Total</span></div><div><b id="sCnt">0</b><span>Expenses</span></div><div><b id="sAvg">₹0</b><span>Per day</span></div></div>
+  </div>
+
+  <div class="card">
+    <h3>By segment</h3>
+    <div class="chips" id="cf"></div>
+    <div id="segBud" style="margin:4px 0 12px"></div>
+    <div id="chart"></div>
+    <ul class="ins" id="ins"></ul>
+  </div>
+
+  <div class="card"><h3 id="lh">Recent expenses</h3><div id="sl"></div></div>
+</section>
+
+<section id="p-invest" class="hide">
+  <div class="card">
+    <h3>Add investment</h3>
+    <div class="row"><select id="it"></select><input id="in" placeholder="Name (e.g. Nifty 50 index fund)" maxlength="60"></div>
+    <div class="row"><input id="ia" type="number" inputmode="decimal" placeholder="Amount ₹" min="0" step="0.01"><input id="id" type="date"></div>
+    <div class="row hide" id="imrow"><input id="im" type="date"><input id="ir" type="number" inputmode="decimal" placeholder="Rate % p.a." step="0.01"></div>
+    <div class="row"><button class="b" id="addI">Add investment</button></div>
+  </div>
+  <div class="card">
+    <div class="stats"><div><b id="iInv">₹0</b><span>Invested</span></div><div><b id="iCur">₹0</b><span>Current value</span></div><div><b id="iGain">₹0</b><span>Gain</span></div></div>
+  </div>
+  <div class="card"><h3>By type</h3><div id="ichart"></div></div>
+  <div class="card">
+    <div class="chips" id="ifl"></div>
+    <div id="il"></div>
+  </div>
+</section>
+
+<section id="p-settings" class="hide">
+  <div class="card">
+    <h3>Budget by segment (₹) — set Monthly or Annual</h3>
+    <div id="bset"></div>
+    <div class="item"><div class="t">Monthly segments total</div><span class="amt" id="btot">₹0</span></div>
+    <div class="item"><div class="t">Annual segments total</div><span class="amt" id="btoty">₹0</span></div>
+    <div class="row"><input id="cn" placeholder="New segment (e.g. Travel)" maxlength="30"><select id="cf2" style="width:100px"><option value="m">Monthly</option><option value="y">Annual</option></select></div>
+    <div class="row"><button class="b" id="addC">Add segment</button></div>
+  </div>
+  <div class="card">
+    <h3>Data</h3>
+    <button class="b" id="xl" style="margin:0 0 8px">Export to Excel (.xlsx)</button>
+    <button class="link" id="exp">Download backup (JSON)</button><br>
+    <label class="link" style="display:inline-block">Restore from backup<input type="file" id="imp" accept=".json,application/json" style="display:none"></label>
+    <div id="dmsg" style="color:var(--mute);font-size:13px"></div>
+  </div>
+</section>
+</div>
+
+<nav class="tabs"><button id="tb-tasks" class="on">Tasks</button><button id="tb-spend">Spending</button><button id="tb-invest">Invest</button><button id="tb-settings">Settings</button></nav>
+
+<script>
+const DEFCATS=[["Food","m"],["Transport","m"],["Bills","m"],["Shopping","m"],["Health","m"],["Fun","m"],["Other","m"],["Electronics","y"],["Furniture","y"],["Insurance","y"]].map(([n,f])=>({n,f}));
+let CATS=[];
+const catF=n=>(S.cats.find(c=>c.n===n)||{f:"m"}).f;
+function syncCats(){
+  if(!Array.isArray(S.cats)||!S.cats.length)S.cats=DEFCATS.map(c=>({...c}));
+  S.cats=S.cats.filter(c=>c&&typeof c.n==="string"&&c.n.trim()).map(c=>({n:c.n.trim(),f:c.f==="y"?"y":"m"}));
+  S.spends.forEach(x=>{if(!S.cats.some(c=>c.n===x.c))S.cats.push({n:x.c,f:"m"})});
+  CATS=S.cats.map(c=>c.n);
+  const sel=$("sc"),cur=sel.value;sel.innerHTML=CATS.map(c=>`<option>${esc(c)}</option>`).join("");
+  if(CATS.includes(cur))sel.value=cur;
+  if(cFilter!=="All"&&!CATS.includes(cFilter))cFilter="All";
+}
+const COL=[];
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const inr=n=>"₹"+Math.round(n).toLocaleString("en-IN");
+const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
+const today=()=>iso(new Date());
+let S={tasks:[],spends:[],invests:[],budgets:{},cats:[]}, tab="tasks", tFilter="active", cFilter="All", db=null, docRef=null, saveTimer=null;
+
+/* ---------- storage: localStorage + durable db when available ---------- */
+function lsGet(){try{return JSON.parse(localStorage.getItem("tsapp")||"null")}catch(e){return null}}
+function lsSet(){try{localStorage.setItem("tsapp",JSON.stringify(S))}catch(e){}}
+function save(){
+  lsSet();
+  if(!docRef)return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{try{docRef.set({json:JSON.stringify(S)}).catch(()=>{})}catch(e){}},600);
+}
+function adopt(o){if(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)){S={tasks:o.tasks,spends:o.spends,invests:Array.isArray(o.invests)?o.invests:[],budgets:(o.budgets&&typeof o.budgets==="object")?o.budgets:{},cats:Array.isArray(o.cats)?o.cats:[]};syncCats()}}
+adopt(lsGet());syncCats();
+(async()=>{
+  try{
+    const user=await claude.use("user"); db=await claude.use("db");
+    if(!db||!user)return;
+    const id=await user.id();
+    docRef=db.collection("data/users/"+id).doc("main");
+    const snap=await docRef.get();
+    const d=snap&&(snap.data?snap.data():snap);
+    if(d&&d.json){adopt(JSON.parse(d.json));lsSet();render()}
+    else if(S.tasks.length||S.spends.length){save()}
+  }catch(e){}
+})();
+
+/* ---------- tabs ---------- */
+const TITLES={tasks:"Tasks",spend:"Spending",invest:"Investments",settings:"Settings"};
+function setTab(t){tab=t;for(const k in TITLES){$("p-"+k).classList.toggle("hide",k!==t);$("tb-"+k).classList.toggle("on",k===t)}
+  $("title").textContent=TITLES[t];render()}
+for(const k in TITLES)$("tb-"+k).onclick=()=>setTab(k);
+
+/* ---------- tasks ---------- */
+$("addT").onclick=()=>{const t=$("tt").value.trim();if(!t)return;
+  S.tasks.unshift({id:Date.now(),t,due:$("td").value||today(),hi:$("tp").value==="1",done:false});
+  $("tt").value="";$("td").value=today();$("tp").value="0";save();render()};
+$("tt").addEventListener("keydown",e=>{if(e.key==="Enter")$("addT").click()});
+function renderTasks(){
+  const f=[["active","Active"],["done","Done"],["all","All"]];
+  $("tf").innerHTML=f.map(([k,l])=>`<button class="chip ${tFilter===k?"on":""}" data-k="${k}">${l}</button>`).join("");
+  $("tf").querySelectorAll("button").forEach(b=>b.onclick=()=>{tFilter=b.dataset.k;render()});
+  let list=S.tasks.filter(x=>tFilter==="all"||(tFilter==="done")===x.done);
+  list.sort((a,b)=>(b.hi-a.hi)||((a.due||"9")>(b.due||"9")?1:-1));
+  const td=today();
+  $("tl").innerHTML=list.length?list.map(x=>`<div class="item ${x.done?"done":""}">
+    <input type="checkbox" data-c="${x.id}" ${x.done?"checked":""}>
+    <div class="t">${esc(x.t)}<small>${x.hi?'<span class="pill hi">High</span> ':""}${x.due?`<span class="${!x.done&&x.due<td?"over":""}">${x.due<td&&!x.done?"Overdue · ":"Due "}${x.due}</span>`:""}</small></div>
+    <button class="ghost" data-d="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">Nothing here</div>';
+  $("tl").querySelectorAll("[data-c]").forEach(e=>e.onchange=()=>{const x=S.tasks.find(y=>y.id==e.dataset.c);x.done=e.checked;save();render()});
+  $("tl").querySelectorAll("[data-d]").forEach(e=>e.onclick=()=>{S.tasks=S.tasks.filter(y=>y.id!=e.dataset.d);save();render()});
+}
+
+/* ---------- spending ---------- */
+$("sd").value=today();$("td").value=today();
+$("addS").onclick=()=>{const a=parseFloat($("sa").value);if(!(a>0))return;
+  S.spends.unshift({id:Date.now(),a,c:$("sc").value,n:$("sn").value.trim(),d:$("sd").value||today()});
+  $("sa").value="";$("sn").value="";$("sd").value=today();save();render()};
+const sum=a=>a.reduce((s,x)=>s+x.a,0);
+let per="month", anchor=new Date(), rFrom=today(), rTo=today();
+const PK=[["day","Day"],["week","Week"],["month","Month"],["year","Year"],["range","Range"]];
+const fmt=(d,o)=>d.toLocaleDateString("en-IN",o);
+function bounds(ref,k){ // returns {s,e,label} for the period containing ref
+  const y=ref.getFullYear(),m=ref.getMonth(),d=ref.getDate();
+  if(k==="day")return{s:iso(ref),e:iso(ref),label:fmt(ref,{weekday:"short",day:"numeric",month:"short",year:"numeric"})};
+  if(k==="week"){const wd=(ref.getDay()+6)%7;const a=new Date(y,m,d-wd),z=new Date(y,m,d-wd+6);return{s:iso(a),e:iso(z),label:fmt(a,{day:"numeric",month:"short"})+" – "+fmt(z,{day:"numeric",month:"short",year:"numeric"})}}
+  if(k==="month"){const a=new Date(y,m,1),z=new Date(y,m+1,0);return{s:iso(a),e:iso(z),label:fmt(a,{month:"long",year:"numeric"})}}
+  if(k==="year")return{s:y+"-01-01",e:y+"-12-31",label:String(y)};
+  const f=rFrom<=rTo?rFrom:rTo,t=rFrom<=rTo?rTo:rFrom;return{s:f,e:t,label:f+" → "+t};
+}
+function shift(dir){
+  const y=anchor.getFullYear(),m=anchor.getMonth(),d=anchor.getDate();
+  anchor=per==="day"?new Date(y,m,d+dir):per==="week"?new Date(y,m,d+7*dir):per==="month"?new Date(y,m+dir,1):new Date(y+dir,m,1);
+}
+$("pPrev").onclick=()=>{shift(-1);render()};$("pNext").onclick=()=>{shift(1);render()};
+$("rFrom").onchange=e=>{rFrom=e.target.value||today();render()};$("rTo").onchange=e=>{rTo=e.target.value||today();render()};
+const inR=(x,B)=>x.d>=B.s&&x.d<=B.e;
+function renderSpend(){
+  const td=today();
+  $("pk").innerHTML=PK.map(([k,l])=>`<button class="chip ${per===k?"on":""}" data-k="${k}">${l}</button>`).join("");
+  $("pk").querySelectorAll("button").forEach(x=>x.onclick=()=>{per=x.dataset.k;if(per!=="range")anchor=new Date();render()});
+  const isR=per==="range";
+  $("pnav").classList.toggle("hide",isR);$("prange").classList.toggle("hide",!isR);
+  $("rFrom").value=rFrom;$("rTo").value=rTo;
+  const B=bounds(anchor,per);$("pLabel").textContent=B.label;
+  const cur=S.spends.filter(x=>inR(x,B)),tot=sum(cur);
+  // days elapsed in period (cap at today for current periods)
+  const dayMs=864e5,toD=s=>new Date(s+"T00:00:00");
+  const endEff=B.e>td&&B.s<=td?td:B.e;
+  const days=Math.max(1,Math.round((toD(endEff)-toD(B.s))/dayMs)+1);
+  $("sTot").textContent=inr(tot);$("sCnt").textContent=cur.length;$("sAvg").textContent=inr(tot/days);
+
+  // segment selector
+  const cats=["All",...CATS];
+  $("cf").innerHTML=cats.map(c=>`<button class="chip ${cFilter===c?"on":""}" data-k="${esc(c)}">${esc(c)}</button>`).join("");
+  $("cf").querySelectorAll("button").forEach(x=>x.onclick=()=>{cFilter=x.dataset.k;render()});
+  // segment budget: monthly segments vs the calendar month, annual segments vs the calendar year
+  const bd=(B.e>td&&B.s<=td?td:B.e), bm=bd.slice(0,7), by4=bd.slice(0,4);
+  const bAll=cFilter==="All";
+  const blk=(title,alloc,spent,plabel)=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(title)} · ${plabel}</span><span class="amt">${inr(alloc)}</span></div>
+    <div class="bar"><i style="width:${Math.min(100,spent/alloc*100)}%;${spent>alloc?"background:var(--bad)":""}"></i></div>
+    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mute)"><span>Spent ${inr(spent)}</span><span class="${spent>alloc?"over":""}">${spent>alloc?"Over by "+inr(spent-alloc):inr(alloc-spent)+" left"}</span></div></div>`;
+  const grp=(f,names,label)=>{const al=names.reduce((t,c)=>t+(+S.budgets[c]||0),0);
+    const key=f==="y"?by4:bm, sp=sum(S.spends.filter(x=>x.d.startsWith(key)&&names.includes(x.c)));
+    const pl=f==="y"?by4:fmt(new Date(bm+"-01T00:00:00"),{month:"short",year:"numeric"});
+    return al?blk(label,al,sp,pl):""};
+  let bh="";
+  if(bAll){bh=grp("m",CATS.filter(c=>catF(c)==="m"),"Monthly segments")+grp("y",CATS.filter(c=>catF(c)==="y"),"Annual segments");
+    if(!bh)bh='<div style="font-size:13px;color:var(--mute)">No budgets set — add them in Settings.</div>'}
+  else{const f=catF(cFilter),al=+S.budgets[cFilter]||0;
+    bh=al?grp(f,[cFilter],cFilter+(f==="y"?" (annual)":""))
+      :`<div style="font-size:13px;color:var(--mute)">No ${f==="y"?"annual":"monthly"} budget for ${esc(cFilter)} — set it in Settings.</div>`}
+  $("segBud").innerHTML=bh;
+  const by=CATS.map(c=>({c,v:sum(cur.filter(x=>x.c===c))})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  $("chart").innerHTML=by.length?by.map(x=>`<div style="margin:8px 0;cursor:pointer" data-k="${esc(x.c)}">
+    <div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(x.c)}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/tot*100)}%</span></div>
+    <div class="bar" style="margin:3px 0"><i style="width:${x.v/by[0].v*100}%"></i></div></div>`).join(""):'<div class="empty">No spending in this period</div>';
+  $("chart").querySelectorAll("[data-k]").forEach(x=>x.onclick=()=>{cFilter=x.dataset.k;render()});
+
+  // insights for selected segment, compared with the previous equal-length period
+  const ins=[],scope=cFilter==="All"?cur:cur.filter(x=>x.c===cFilter),st=sum(scope);
+  let PB;
+  if(isR){const n=days;PB={s:iso(new Date(toD(B.s).getTime()-n*dayMs)),e:iso(new Date(toD(B.s).getTime()-dayMs))}}
+  else{const a=new Date(anchor);const y=a.getFullYear(),m=a.getMonth(),d=a.getDate();
+    const pr=per==="day"?new Date(y,m,d-1):per==="week"?new Date(y,m,d-7):per==="month"?new Date(y,m-1,1):new Date(y-1,m,1);PB=bounds(pr,per)}
+  const pt=sum(S.spends.filter(x=>inR(x,PB)&&(cFilter==="All"||x.c===cFilter)));
+  if(!scope.length)ins.push(`No ${cFilter==="All"?"":cFilter.toLowerCase()+" "}expenses in this period.`);
+  else{
+    ins.push(`<b>${cFilter}</b>: ${inr(st)} in ${scope.length} expense${scope.length>1?"s":""}${cFilter!=="All"&&tot?`, ${Math.round(st/tot*100)}% of total`:""}.`);
+    const big=scope.reduce((a,x)=>x.a>a.a?x:a);ins.push(`Biggest: ${inr(big.a)}${big.n?" ("+esc(big.n)+")":""} on ${big.d}.`);
+    if(pt>0){const ch=(st-pt)/pt*100;ins.push(`Vs previous period (${inr(pt)}): <span class="${ch>0?"over":""}">${ch>0?"▲":"▼"} ${Math.abs(Math.round(ch))}%</span>.`)}
+    if(B.e>=td&&B.s<=td&&per!=="day"){const tl=Math.round((toD(B.e)-toD(B.s))/dayMs)+1;ins.push(`At this pace, period end ≈ <b>${inr(st/days*tl)}</b>.`)}
+  }
+  $("ins").innerHTML=ins.map(i=>`<li>${i}</li>`).join("");
+
+  // list for selected period + segment
+  const list=scope.slice().sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id);
+  $("lh").textContent=(cFilter==="All"?"Expenses":cFilter)+" · "+list.length;
+  $("sl").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t">${esc(x.n||x.c)}<small>${esc(x.c)} · ${x.d}</small></div><span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">No expenses</div>';
+  $("sl").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.spends=S.spends.filter(y=>y.id!=e.dataset.x);save();render()});
+}
+/* ---------- investments ---------- */
+const INV=["SIP","Gold","FD","RD","Stocks","Other"];
+let iFilter="All";
+$("it").innerHTML=INV.map(c=>`<option>${c}</option>`).join("");
+$("id").value=today();
+const isDebt=t=>t==="FD"||t==="RD";
+$("it").onchange=()=>$("imrow").classList.toggle("hide",!isDebt($("it").value));
+$("addI").onclick=()=>{const a=parseFloat($("ia").value);if(!(a>0))return;const t=$("it").value;
+  S.invests.unshift({id:Date.now(),t,n:$("in").value.trim(),a,d:$("id").value||today(),cv:null,m:isDebt(t)?$("im").value:"",r:isDebt(t)?parseFloat($("ir").value)||0:0});
+  $("ia").value="";$("in").value="";$("im").value="";$("ir").value="";$("id").value=today();save();render()};
+const curVal=x=>x.cv==null?x.a:x.cv;
+function renderInvest(){
+  const all=S.invests,inv=sum(all),cur=all.reduce((t,x)=>t+curVal(x),0),g=cur-inv;
+  $("iInv").textContent=inr(inv);$("iCur").textContent=inr(cur);
+  $("iGain").innerHTML=`<span class="${g<0?"over":""}">${g<0?"-":""}${inr(Math.abs(g))}</span>`;
+  const by=INV.map(t=>({t,v:sum(all.filter(x=>x.t===t)),n:all.filter(x=>x.t===t).length})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
+  $("ichart").innerHTML=by.length?by.map(x=>`<div style="margin:8px 0"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${x.t} · ${x.n}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/inv*100)}%</span></div><div class="bar" style="margin:3px 0"><i style="width:${x.v/by[0].v*100}%"></i></div></div>`).join(""):'<div class="empty">Nothing added yet</div>';
+  $("ifl").innerHTML=["All",...INV].map(c=>`<button class="chip ${iFilter===c?"on":""}" data-k="${c}">${c}</button>`).join("");
+  $("ifl").querySelectorAll("button").forEach(b=>b.onclick=()=>{iFilter=b.dataset.k;render()});
+  const td=today(),list=all.filter(x=>iFilter==="All"||x.t===iFilter).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id);
+  $("il").innerHTML=list.length?list.map(x=>{const gain=curVal(x)-x.a;
+    return `<div class="item"><div class="t">${esc(x.n||x.t)}<small>${x.t} · ${x.d}${x.m?` · matures ${x.m}${x.m<td?" (due)":""}`:""}${x.r?` · ${x.r}%`:""}</small>
+      <small>Now ₹ <input type="number" inputmode="decimal" data-v="${x.id}" value="${x.cv==null?"":x.cv}" placeholder="${Math.round(x.a)}" style="width:90px;display:inline-block;padding:2px 0"> ${x.cv!=null?`<span class="${gain<0?"over":""}">${gain<0?"▼":"▲"} ${inr(Math.abs(gain))}</span>`:""}</small></div>
+      <span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`}).join(""):'<div class="empty">No investments</div>';
+  $("il").querySelectorAll("[data-v]").forEach(e=>e.onchange=()=>{const x=S.invests.find(y=>y.id==e.dataset.v);x.cv=e.value===""?null:Math.max(0,parseFloat(e.value)||0);save();render()});
+  $("il").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.invests=S.invests.filter(y=>y.id!=e.dataset.x);save();render()});
+}
+
+/* ---------- settings ---------- */
+function renderSettings(){
+  $("bset").innerHTML=S.cats.map((c,i)=>{const used=S.spends.some(x=>x.c===c.n);
+    return `<div class="item"><div class="t">${esc(c.n)}</div>
+      <select data-f="${i}" style="width:92px"><option value="m" ${c.f==="m"?"selected":""}>Monthly</option><option value="y" ${c.f==="y"?"selected":""}>Annual</option></select>
+      <input type="number" inputmode="decimal" data-b="${i}" placeholder="0" value="${S.budgets[c.n]||""}" style="width:90px;text-align:right">
+      <button class="ghost" data-r="${i}" aria-label="Remove" ${used?'disabled title="Has expenses" style="opacity:.25"':""}>✕</button></div>`}).join("");
+  $("bset").querySelectorAll("[data-b]").forEach(e=>e.onchange=()=>{S.budgets[S.cats[e.dataset.b].n]=Math.max(0,parseFloat(e.value)||0);save();renderSettings()});
+  $("bset").querySelectorAll("[data-f]").forEach(e=>e.onchange=()=>{S.cats[e.dataset.f].f=e.value;save();renderSettings()});
+  $("bset").querySelectorAll("[data-r]:not([disabled])").forEach(e=>e.onclick=()=>{const c=S.cats.splice(e.dataset.r,1)[0];delete S.budgets[c.n];syncCats();save();renderSettings()});
+  const tot=f=>S.cats.filter(c=>c.f===f).reduce((t,c)=>t+(+S.budgets[c.n]||0),0);
+  $("btot").textContent=inr(tot("m"))+" / month";$("btoty").textContent=inr(tot("y"))+" / year";
+}
+$("addC").onclick=()=>{const n=$("cn").value.trim().slice(0,30);if(!n||S.cats.some(c=>c.n.toLowerCase()===n.toLowerCase()))return;
+  S.cats.push({n,f:$("cf2").value});$("cn").value="";syncCats();save();renderSettings()};
+$("exp").onclick=async()=>{
+  const data=JSON.stringify(S,null,2);
+  try{const d=await claude.use("downloads");if(d){await d.save({filename:"tasks-spends-backup.json",data});$("dmsg").textContent="";return}}catch(e){}
+  try{await navigator.clipboard.writeText(data);$("dmsg").textContent="Backup copied to clipboard"}catch(e){$("dmsg").textContent="Backup unavailable here"}
+};
+$("imp").onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
+  r.onload=()=>{try{const o=JSON.parse(r.result);if(!(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)))throw 0;adopt(o);save();render();$("dmsg").textContent="Restored"}catch(x){$("dmsg").textContent="Not a valid backup file"}};
+  r.readAsText(f);e.target.value=""};
+
+/* ---------- Excel export (no external library) ---------- */
+const enc=new TextEncoder();
+const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function zip(files){ // stored (no compression)
+  const parts=[],cen=[];let off=0;
+  const u16=v=>[v&255,v>>8&255],u32=v=>[v&255,v>>8&255,v>>16&255,v>>>24&255];
+  for(const f of files){const n=enc.encode(f.name),d=f.data,c=crc32(d);
+    const h=new Uint8Array([0x50,0x4b,3,4,20,0,0,0,0,0,0,0,0,0,...u32(c),...u32(d.length),...u32(d.length),...u16(n.length),0,0]);
+    parts.push(h,n,d);
+    cen.push(new Uint8Array([0x50,0x4b,1,2,20,0,20,0,0,0,0,0,0,0,0,0,...u32(c),...u32(d.length),...u32(d.length),...u16(n.length),0,0,0,0,0,0,0,0,0,0,0,0,...u32(off)]),n);
+    off+=h.length+n.length+d.length}
+  const cs=cen.reduce((t,x)=>t+x.length,0);
+  const end=new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...u16(files.length),...u16(files.length),...u32(cs),...u32(off),0,0]);
+  return new Blob([...parts,...cen,end],{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+const xe=v=>String(v).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g,"");
+const colL=i=>{let s="";for(i++;i>0;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s};
+function sheetXml(rows,widths){
+  const cols=`<cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w}" customWidth="1"/>`).join("")}</cols>`;
+  const body=rows.map((r,ri)=>`<row r="${ri+1}">${r.map((v,ci)=>{
+    const ref=colL(ci)+(ri+1),st=ri===0?' s="1"':"";
+    if(v===""||v==null)return"";
+    return typeof v==="number"?`<c r="${ref}"${st}><v>${v}</v></c>`:`<c r="${ref}"${st} t="inlineStr"><is><t xml:space="preserve">${xe(v)}</t></is></c>`}).join("")}</row>`).join("");
+  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>${cols}<sheetData>${body}</sheetData></worksheet>`;
+}
+function buildXlsx(){
+  const sp=S.spends.slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.id-b.id);
+  const months=[...new Set(sp.map(x=>x.d.slice(0,7)))].sort();
+  const sheets=[
+    ["Expenses",[["Date","Segment","Note","Amount (INR)"],...sp.map(x=>[x.d,x.c,x.n||"",x.a])],[12,16,32,14]],
+    ["Monthly summary",[["Month",...CATS,"Total"],...months.map(m=>{const r=CATS.map(c=>sum(sp.filter(x=>x.d.startsWith(m)&&x.c===c)));return[m,...r,r.reduce((a,b)=>a+b,0)]})],[10,...CATS.map(()=>13),12]],
+    ["Budgets",[["Segment","Frequency","Budget (INR)"],...S.cats.map(c=>[c.n,c.f==="y"?"Annual":"Monthly",+S.budgets[c.n]||0])],[18,12,14]],
+    ["Investments",[["Date","Type","Name","Invested (INR)","Current value (INR)","Gain (INR)","Maturity date","Rate % p.a."],
+      ...S.invests.slice().sort((a,b)=>a.d<b.d?-1:1).map(x=>[x.d,x.t,x.n||"",x.a,x.cv==null?"":x.cv,x.cv==null?"":x.cv-x.a,x.m||"",x.r||""])],[12,10,28,15,18,12,14,12]],
+    ["Tasks",[["Task","Due date","Priority","Status"],...S.tasks.map(x=>[x.t,x.due||"",x.hi?"High":"Normal",x.done?"Done":"Open"])],[40,12,10,10]]
+  ];
+  const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  const f=(name,str)=>({name,data:enc.encode(str)});
+  return zip([
+    f("[Content_Types].xml",X+`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>${sheets.map((_,i)=>`<Override PartName="/xl/worksheets/sheet${i+1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join("")}</Types>`),
+    f("_rels/.rels",X+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`),
+    f("xl/workbook.xml",X+`<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sh,i)=>`<sheet name="${xe(sh[0])}" sheetId="${i+1}" r:id="rId${i+1}"/>`).join("")}</sheets></workbook>`),
+    f("xl/_rels/workbook.xml.rels",X+`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${sheets.map((_,i)=>`<Relationship Id="rId${i+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i+1}.xml"/>`).join("")}<Relationship Id="rId${sheets.length+1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`),
+    f("xl/styles.xml",X+`<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`),
+    ...sheets.map((sh,i)=>f(`xl/worksheets/sheet${i+1}.xml`,sheetXml(sh[1],sh[2])))
+  ]);
+}
+$("xl").onclick=async()=>{
+  const msg=t=>$("dmsg").textContent=t,name="tasks-spends-"+today()+".xlsx";
+  try{
+    const blob=buildXlsx();
+    try{const d=await claude.use("downloads");if(d){try{await d.save({filename:name,data:blob})}catch(e1){await d.save({filename:name,data:new Uint8Array(await blob.arrayBuffer())})}msg("");return}}catch(e){}
+    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();msg("Exported "+name);
+  }catch(e){msg("Export failed")}
+};
+
+function render(){({tasks:renderTasks,spend:renderSpend,invest:renderInvest,settings:renderSettings})[tab]()}
+render();
+</script>
+</body>
+</html>
