@@ -51,6 +51,10 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;pa
 .empty{color:var(--mute);padding:14px 0}
 .hide{display:none}
 .sw{display:none}
+.gh{display:flex;justify-content:space-between;align-items:center;width:100%;background:none;border:0;border-bottom:1px solid var(--line);padding:14px 0;color:var(--ink);font:inherit;cursor:pointer;text-align:left}
+.gh small{color:var(--mute);margin-left:6px}
+.gbody{padding:8px 0 4px 10px}
+select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
 .link{background:none;border:0;color:var(--mute);font-size:13px;padding:8px 0;cursor:pointer;text-decoration:underline}
 </style>
 </head>
@@ -91,8 +95,9 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;pa
   </div>
 
   <div class="card">
-    <h3>By segment</h3>
+    <h3 id="ch3">By group</h3>
     <div class="chips" id="cf"></div>
+    <div class="chips" id="csub"></div>
     <div id="segBud" style="margin:4px 0 12px"></div>
     <div id="chart"></div>
     <ul class="ins" id="ins"></ul>
@@ -121,18 +126,25 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;pa
 
 <section id="p-settings" class="hide">
   <div class="card">
-    <h3>Budget by segment (₹) — set Monthly or Annual</h3>
+    <h3>Budget by group &amp; segment (₹)</h3>
     <div id="bset"></div>
     <div class="item"><div class="t">Monthly segments total</div><span class="amt" id="btot">₹0</span></div>
     <div class="item"><div class="t">Annual segments total</div><span class="amt" id="btoty">₹0</span></div>
-    <div class="row"><input id="cn" placeholder="New segment (e.g. Travel)" maxlength="30"><select id="cf2" style="width:100px"><option value="m">Monthly</option><option value="y">Annual</option></select></div>
-    <div class="row"><button class="b" id="addC">Add segment</button></div>
+    <div class="item"><div class="t">Whole budget (per year)</div><span class="amt" id="btoteq">₹0</span></div>
+  </div>
+  <div class="card">
+    <h3>Add segment</h3>
+    <div class="row"><input id="cn" placeholder="Segment (e.g. Internet)" maxlength="30"><select id="cg" style="width:42%"></select></div>
+    <div class="row"><select id="cf2"><option value="m">Monthly</option><option value="y">Annual</option></select><button class="b" id="addC" style="margin-top:0">Add segment</button></div>
+    <h3 style="margin-top:20px">Add group</h3>
+    <div class="row"><input id="gn" placeholder="Group (e.g. Education)" maxlength="30"><button class="b" id="addG" style="margin-top:0;width:40%">Add group</button></div>
   </div>
   <div class="card">
     <h3>Data</h3>
     <button class="b" id="xl" style="margin:0 0 8px">Export to Excel (.xlsx)</button>
     <button class="link" id="exp">Download backup (JSON)</button><br>
-    <label class="link" style="display:inline-block">Restore from backup<input type="file" id="imp" accept=".json,application/json" style="display:none"></label>
+    <label class="link" style="display:inline-block">Restore from backup<input type="file" id="imp" accept=".json,application/json" style="display:none"></label><br>
+    <button class="link" id="tpl">Load my budget sheet</button>
     <div id="dmsg" style="color:var(--mute);font-size:13px"></div>
   </div>
 </section>
@@ -141,17 +153,43 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;pa
 <nav class="tabs"><button id="tb-tasks" class="on">Tasks</button><button id="tb-spend">Spending</button><button id="tb-invest">Invest</button><button id="tb-settings">Settings</button></nav>
 
 <script>
-const DEFCATS=[["Food","m"],["Transport","m"],["Bills","m"],["Shopping","m"],["Health","m"],["Fun","m"],["Other","m"],["Electronics","y"],["Furniture","y"],["Insurance","y"]].map(([n,f])=>({n,f}));
+const TEMPLATE=[
+ ["General Home Expense",[["Rent","m",0],["Electricity","m",1000],["Gas","m",900],["Phone","m",1416],["Wifi","m",500]]],
+ ["Insurance",[["Term insurance","y",20004],["Health insurance","y",25153],["Car insurance","y",16000]]],
+ ["Car",[["Fuel","m",4000],["Car maintenance","y",12000]]],
+ ["Regular Home Expenses",[["Groceries","m",8000],["Dining out","m",1000],["Clothing","y",32000],["Grooming items","y",6000],["Saloon","m",400],["Movies / Outings","m",0]]],
+ ["Health",[["Doctors","y",18000],["Medicine","y",36000]]],
+ ["Candy",[["Pet food and sand","m",1700],["Pet medicine","y",2000],["Pet vaccination","y",3000],["Pet NOC","y",2000]]],
+ ["Tour and Travel",[["Tour","y",50000],["Hometown visit","y",32000]]],
+ ["Miscellaneous / Gadgets",[["New phone","y",25000],["Laptop","y",20000],["Home appliances","y",20000]]]
+];
+function applyTemplate(){
+  S.groups=TEMPLATE.map(g=>g[0]);S.cats=[];S.budgets={};
+  TEMPLATE.forEach(([g,items])=>items.forEach(([n,f,b])=>{S.cats.push({n,f,g});S.budgets[n]=b}));
+}
+const GUESS={"food":"Regular Home Expenses","transport":"Car","bills":"General Home Expense","shopping":"Regular Home Expenses","health":"Health","fun":"Regular Home Expenses","electronics":"Miscellaneous / Gadgets","furniture":"Miscellaneous / Gadgets","insurance":"Insurance",
+ "electricity":"General Home Expense","gas":"General Home Expense","phone bill + wifi":"General Home Expense","phone bill":"General Home Expense","wifi":"General Home Expense","fuel":"Car","car mentainance":"Car",
+ "groceries":"Regular Home Expenses","dining out":"Regular Home Expenses","clothing":"Regular Home Expenses","grooming items":"Regular Home Expenses","saloon":"Regular Home Expenses","doctors":"Health","medicine":"Health",
+ "pet related":"Candy","tour and travel":"Tour and Travel","hometown visit":"Tour and Travel","gadgets and furniture":"Miscellaneous / Gadgets","term insurance":"Insurance","health insurance":"Insurance","car insurance":"Insurance"};
+function guessGroup(n){const k=n.toLowerCase();if(GUESS[k])return GUESS[k];
+  if(k.includes("insurance"))return"Insurance";if(k.includes("pet"))return"Candy";if(k.includes("car"))return"Car";return"Other"}
 let CATS=[];
 const catF=n=>(S.cats.find(c=>c.n===n)||{f:"m"}).f;
+const gOf=n=>(S.cats.find(c=>c.n===n)||{g:"Other"}).g;
+const subsOf=g=>S.cats.filter(c=>c.g===g).map(c=>c.n);
 function syncCats(){
-  if(!Array.isArray(S.cats)||!S.cats.length)S.cats=DEFCATS.map(c=>({...c}));
-  S.cats=S.cats.filter(c=>c&&typeof c.n==="string"&&c.n.trim()).map(c=>({n:c.n.trim(),f:c.f==="y"?"y":"m"}));
-  S.spends.forEach(x=>{if(!S.cats.some(c=>c.n===x.c))S.cats.push({n:x.c,f:"m"})});
+  if(!Array.isArray(S.cats)||!S.cats.length)applyTemplate();
+  S.cats=S.cats.filter(c=>c&&typeof c.n==="string"&&c.n.trim()).map(c=>({n:c.n.trim(),f:c.f==="y"?"y":"m",g:(typeof c.g==="string"&&c.g.trim())?c.g.trim():guessGroup(c.n.trim())}));
+  S.spends.forEach(x=>{if(!S.cats.some(c=>c.n===x.c))S.cats.push({n:x.c,f:"m",g:guessGroup(x.c)})});
+  const gs=[];(Array.isArray(S.groups)?S.groups:[]).concat(S.cats.map(c=>c.g)).forEach(g=>{if(typeof g==="string"&&g&&!gs.includes(g))gs.push(g)});
+  S.groups=gs;
   CATS=S.cats.map(c=>c.n);
-  const sel=$("sc"),cur=sel.value;sel.innerHTML=CATS.map(c=>`<option>${esc(c)}</option>`).join("");
+  const sel=$("sc"),cur=sel.value;
+  sel.innerHTML=S.groups.filter(g=>subsOf(g).length).map(g=>`<optgroup label="${esc(g)}">${subsOf(g).map(n=>`<option>${esc(n)}</option>`).join("")}</optgroup>`).join("");
   if(CATS.includes(cur))sel.value=cur;
+  if(gFilter!=="All"&&!S.groups.includes(gFilter))gFilter="All";
   if(cFilter!=="All"&&!CATS.includes(cFilter))cFilter="All";
+  if(cFilter!=="All"&&gOf(cFilter)!==gFilter)gFilter=gOf(cFilter);
 }
 const COL=[];
 const $=id=>document.getElementById(id);
@@ -159,7 +197,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const inr=n=>"₹"+Math.round(n).toLocaleString("en-IN");
 const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
 const today=()=>iso(new Date());
-let S={tasks:[],spends:[],invests:[],budgets:{},cats:[]}, tab="tasks", tFilter="active", cFilter="All", db=null, docRef=null, saveTimer=null;
+let S={tasks:[],spends:[],invests:[],budgets:{},cats:[],groups:[]}, tab="tasks", tFilter="active", cFilter="All", gFilter="All", db=null, docRef=null, saveTimer=null;
 
 /* ---------- storage: localStorage + durable db when available ---------- */
 function lsGet(){try{return JSON.parse(localStorage.getItem("tsapp")||"null")}catch(e){return null}}
@@ -170,7 +208,7 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{try{docRef.set({json:JSON.stringify(S)}).catch(()=>{})}catch(e){}},600);
 }
-function adopt(o){if(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)){S={tasks:o.tasks,spends:o.spends,invests:Array.isArray(o.invests)?o.invests:[],budgets:(o.budgets&&typeof o.budgets==="object")?o.budgets:{},cats:Array.isArray(o.cats)?o.cats:[]};syncCats()}}
+function adopt(o){if(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)){S={tasks:o.tasks,spends:o.spends,invests:Array.isArray(o.invests)?o.invests:[],budgets:(o.budgets&&typeof o.budgets==="object")?o.budgets:{},cats:Array.isArray(o.cats)?o.cats:[],groups:Array.isArray(o.groups)?o.groups:[]};syncCats()}}
 adopt(lsGet());syncCats();
 (async()=>{
   try{
@@ -250,53 +288,63 @@ function renderSpend(){
   const days=Math.max(1,Math.round((toD(endEff)-toD(B.s))/dayMs)+1);
   $("sTot").textContent=inr(tot);$("sCnt").textContent=cur.length;$("sAvg").textContent=inr(tot/days);
 
-  // segment selector
-  const cats=["All",...CATS];
-  $("cf").innerHTML=cats.map(c=>`<button class="chip ${cFilter===c?"on":""}" data-k="${esc(c)}">${esc(c)}</button>`).join("");
-  $("cf").querySelectorAll("button").forEach(x=>x.onclick=()=>{cFilter=x.dataset.k;render()});
-  // segment budget: monthly segments vs the calendar month, annual segments vs the calendar year
+  // group / segment selectors
+  const scopeNames=cFilter!=="All"?[cFilter]:gFilter!=="All"?subsOf(gFilter):CATS;
+  const inScope=x=>scopeNames.includes(x.c);
+  const label=cFilter!=="All"?cFilter:gFilter!=="All"?gFilter:"All";
+  $("cf").innerHTML=["All",...S.groups].map(g=>`<button class="chip ${gFilter===g?"on":""}" data-k="${esc(g)}">${esc(g)}</button>`).join("");
+  $("cf").querySelectorAll("button").forEach(x=>x.onclick=()=>{gFilter=x.dataset.k;cFilter="All";render()});
+  $("csub").innerHTML=gFilter==="All"?"":["All",...subsOf(gFilter)].map(c=>`<button class="chip ${cFilter===c?"on":""}" data-k="${esc(c)}">${c==="All"?"All in group":esc(c)}</button>`).join("");
+  $("csub").querySelectorAll("button").forEach(x=>x.onclick=()=>{cFilter=x.dataset.k;render()});
+  // budget: monthly segments vs the calendar month, annual segments vs the calendar year
   const bd=(B.e>td&&B.s<=td?td:B.e), bm=bd.slice(0,7), by4=bd.slice(0,4);
-  const bAll=cFilter==="All";
   const blk=(title,alloc,spent,plabel)=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(title)} · ${plabel}</span><span class="amt">${inr(alloc)}</span></div>
     <div class="bar"><i style="width:${Math.min(100,spent/alloc*100)}%;${spent>alloc?"background:var(--bad)":""}"></i></div>
     <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--mute)"><span>Spent ${inr(spent)}</span><span class="${spent>alloc?"over":""}">${spent>alloc?"Over by "+inr(spent-alloc):inr(alloc-spent)+" left"}</span></div></div>`;
-  const grp=(f,names,label)=>{const al=names.reduce((t,c)=>t+(+S.budgets[c]||0),0);
+  const grp=(f,names,title)=>{const al=names.reduce((t,c)=>t+(+S.budgets[c]||0),0);
     const key=f==="y"?by4:bm, sp=sum(S.spends.filter(x=>x.d.startsWith(key)&&names.includes(x.c)));
     const pl=f==="y"?by4:fmt(new Date(bm+"-01T00:00:00"),{month:"short",year:"numeric"});
-    return al?blk(label,al,sp,pl):""};
+    return al?blk(title,al,sp,pl):""};
   let bh="";
-  if(bAll){bh=grp("m",CATS.filter(c=>catF(c)==="m"),"Monthly segments")+grp("y",CATS.filter(c=>catF(c)==="y"),"Annual segments");
+  if(cFilter==="All"){
+    const pre=gFilter==="All"?"":gFilter+" · ";
+    bh=grp("m",scopeNames.filter(c=>catF(c)==="m"),pre+"Monthly segments")+grp("y",scopeNames.filter(c=>catF(c)==="y"),pre+"Annual segments");
     if(!bh)bh='<div style="font-size:13px;color:var(--mute)">No budgets set — add them in Settings.</div>'}
   else{const f=catF(cFilter),al=+S.budgets[cFilter]||0;
     bh=al?grp(f,[cFilter],cFilter+(f==="y"?" (annual)":""))
       :`<div style="font-size:13px;color:var(--mute)">No ${f==="y"?"annual":"monthly"} budget for ${esc(cFilter)} — set it in Settings.</div>`}
   $("segBud").innerHTML=bh;
-  const by=CATS.map(c=>({c,v:sum(cur.filter(x=>x.c===c))})).filter(x=>x.v>0).sort((a,b)=>b.v-a.v);
-  $("chart").innerHTML=by.length?by.map(x=>`<div style="margin:8px 0;cursor:pointer" data-k="${esc(x.c)}">
-    <div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(x.c)}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/tot*100)}%</span></div>
+  // chart: groups when viewing all, segments of the group otherwise
+  const rows=gFilter==="All"
+    ?S.groups.map(g=>({k:g,v:sum(cur.filter(x=>gOf(x.c)===g))}))
+    :subsOf(gFilter).map(c=>({k:c,v:sum(cur.filter(x=>x.c===c))}));
+  const by=rows.filter(x=>x.v>0).sort((a,b)=>b.v-a.v),rt=by.reduce((t,x)=>t+x.v,0);
+  $("ch3").textContent=gFilter==="All"?"By group":gFilter+" · by segment";
+  $("chart").innerHTML=by.length?by.map(x=>`<div style="margin:8px 0;cursor:pointer" data-k="${esc(x.k)}">
+    <div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(x.k)}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/rt*100)}%</span></div>
     <div class="bar" style="margin:3px 0"><i style="width:${x.v/by[0].v*100}%"></i></div></div>`).join(""):'<div class="empty">No spending in this period</div>';
-  $("chart").querySelectorAll("[data-k]").forEach(x=>x.onclick=()=>{cFilter=x.dataset.k;render()});
+  $("chart").querySelectorAll("[data-k]").forEach(x=>x.onclick=()=>{if(gFilter==="All"){gFilter=x.dataset.k;cFilter="All"}else cFilter=x.dataset.k;render()});
 
-  // insights for selected segment, compared with the previous equal-length period
-  const ins=[],scope=cFilter==="All"?cur:cur.filter(x=>x.c===cFilter),st=sum(scope);
+  // insights for the selection, compared with the previous equal-length period
+  const scope=cur.filter(inScope),ins=[],st=sum(scope);
   let PB;
   if(isR){const n=days;PB={s:iso(new Date(toD(B.s).getTime()-n*dayMs)),e:iso(new Date(toD(B.s).getTime()-dayMs))}}
   else{const a=new Date(anchor);const y=a.getFullYear(),m=a.getMonth(),d=a.getDate();
     const pr=per==="day"?new Date(y,m,d-1):per==="week"?new Date(y,m,d-7):per==="month"?new Date(y,m-1,1):new Date(y-1,m,1);PB=bounds(pr,per)}
-  const pt=sum(S.spends.filter(x=>inR(x,PB)&&(cFilter==="All"||x.c===cFilter)));
-  if(!scope.length)ins.push(`No ${cFilter==="All"?"":cFilter.toLowerCase()+" "}expenses in this period.`);
+  const pt=sum(S.spends.filter(x=>inR(x,PB)&&inScope(x)));
+  if(!scope.length)ins.push(`No ${label==="All"?"":esc(label)+" "}expenses in this period.`);
   else{
-    ins.push(`<b>${cFilter}</b>: ${inr(st)} in ${scope.length} expense${scope.length>1?"s":""}${cFilter!=="All"&&tot?`, ${Math.round(st/tot*100)}% of total`:""}.`);
+    ins.push(`<b>${esc(label)}</b>: ${inr(st)} in ${scope.length} expense${scope.length>1?"s":""}${label!=="All"&&tot?`, ${Math.round(st/tot*100)}% of total`:""}.`);
     const big=scope.reduce((a,x)=>x.a>a.a?x:a);ins.push(`Biggest: ${inr(big.a)}${big.n?" ("+esc(big.n)+")":""} on ${big.d}.`);
     if(pt>0){const ch=(st-pt)/pt*100;ins.push(`Vs previous period (${inr(pt)}): <span class="${ch>0?"over":""}">${ch>0?"▲":"▼"} ${Math.abs(Math.round(ch))}%</span>.`)}
     if(B.e>=td&&B.s<=td&&per!=="day"){const tl=Math.round((toD(B.e)-toD(B.s))/dayMs)+1;ins.push(`At this pace, period end ≈ <b>${inr(st/days*tl)}</b>.`)}
   }
   $("ins").innerHTML=ins.map(i=>`<li>${i}</li>`).join("");
 
-  // list for selected period + segment
+  // list for selected period + selection
   const list=scope.slice().sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id);
-  $("lh").textContent=(cFilter==="All"?"Expenses":cFilter)+" · "+list.length;
-  $("sl").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t">${esc(x.n||x.c)}<small>${esc(x.c)} · ${x.d}</small></div><span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">No expenses</div>';
+  $("lh").textContent=(label==="All"?"Expenses":label)+" · "+list.length;
+  $("sl").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t">${esc(x.n||x.c)}<small>${esc(gOf(x.c))} › ${esc(x.c)} · ${x.d}</small></div><span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">No expenses</div>';
   $("sl").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.spends=S.spends.filter(y=>y.id!=e.dataset.x);save();render()});
 }
 /* ---------- investments ---------- */
@@ -328,20 +376,44 @@ function renderInvest(){
 }
 
 /* ---------- settings ---------- */
+let openG=new Set();
+const mEq=c=>c.f==="y"?(+S.budgets[c.n]||0)/12:(+S.budgets[c.n]||0);
 function renderSettings(){
-  $("bset").innerHTML=S.cats.map((c,i)=>{const used=S.spends.some(x=>x.c===c.n);
-    return `<div class="item"><div class="t">${esc(c.n)}</div>
-      <select data-f="${i}" style="width:92px"><option value="m" ${c.f==="m"?"selected":""}>Monthly</option><option value="y" ${c.f==="y"?"selected":""}>Annual</option></select>
-      <input type="number" inputmode="decimal" data-b="${i}" placeholder="0" value="${S.budgets[c.n]||""}" style="width:90px;text-align:right">
-      <button class="ghost" data-r="${i}" aria-label="Remove" ${used?'disabled title="Has expenses" style="opacity:.25"':""}>✕</button></div>`}).join("");
-  $("bset").querySelectorAll("[data-b]").forEach(e=>e.onchange=()=>{S.budgets[S.cats[e.dataset.b].n]=Math.max(0,parseFloat(e.value)||0);save();renderSettings()});
-  $("bset").querySelectorAll("[data-f]").forEach(e=>e.onchange=()=>{S.cats[e.dataset.f].f=e.value;save();renderSettings()});
-  $("bset").querySelectorAll("[data-r]:not([disabled])").forEach(e=>e.onclick=()=>{const c=S.cats.splice(e.dataset.r,1)[0];delete S.budgets[c.n];syncCats();save();renderSettings()});
+  $("bset").innerHTML=S.groups.map((g,gi)=>{
+    const subs=S.cats.map((c,i)=>({c,i})).filter(x=>x.c.g===g),open=openG.has(g),mo=subs.reduce((t,x)=>t+mEq(x.c),0);
+    const body=open?`<div class="gbody"><div class="row" style="margin:0 0 4px;align-items:center"><input data-gn="${gi}" value="${esc(g)}" maxlength="30" aria-label="Group name">${subs.length?"":`<button class="ghost" data-gr="${gi}" aria-label="Remove group">✕</button>`}</div>
+      ${subs.map(({c,i})=>{const used=S.spends.some(x=>x.c===c.n);
+        return `<div class="item" style="flex-wrap:wrap;gap:2px 6px;padding:10px 0"><input data-sn="${i}" value="${esc(c.n)}" maxlength="30" style="flex:1;min-width:70px;border:0">
+        <select data-f="${i}" style="width:84px;padding-left:0"><option value="m" ${c.f==="m"?"selected":""}>Monthly</option><option value="y" ${c.f==="y"?"selected":""}>Annual</option></select>
+        <input type="number" inputmode="decimal" data-b="${i}" placeholder="0" value="${S.budgets[c.n]||""}" style="width:72px;text-align:right">
+        <button class="ghost" data-r="${i}" aria-label="Remove" ${used?'disabled title="Has expenses" style="opacity:.25"':""}>✕</button>
+        <select class="mini" data-g="${i}" aria-label="Move to group" style="flex-basis:100%;border:0">${S.groups.map(x=>`<option ${x===g?"selected":""}>${esc(x)}</option>`).join("")}</select></div>`}).join("")}</div>`:"";
+    return `<button class="gh" data-go="${gi}"><span>${open?"▾":"▸"} ${esc(g)}<small>${subs.length}</small></span><span class="amt">${inr(mo)} /mo</span></button>${body}`}).join("");
+  const b=$("bset"),q=a=>b.querySelectorAll(a);
+  q("[data-go]").forEach(e=>e.onclick=()=>{const g=S.groups[e.dataset.go];openG.has(g)?openG.delete(g):openG.add(g);renderSettings()});
+  q("[data-gn]").forEach(e=>e.onchange=()=>{const gi=+e.dataset.gn,old=S.groups[gi],v=e.value.trim().slice(0,30);
+    if(v&&v!==old&&!S.groups.includes(v)){S.cats.forEach(c=>{if(c.g===old)c.g=v});S.groups[gi]=v;if(gFilter===old)gFilter=v;openG.delete(old);openG.add(v);syncCats();save()}renderSettings()});
+  q("[data-gr]").forEach(e=>e.onclick=()=>{const g=S.groups.splice(e.dataset.gr,1)[0];openG.delete(g);syncCats();save();renderSettings()});
+  q("[data-sn]").forEach(e=>e.onchange=()=>{const i=+e.dataset.sn,old=S.cats[i].n,v=e.value.trim().slice(0,30);
+    if(v&&v!==old&&!S.cats.some(c=>c.n.toLowerCase()===v.toLowerCase())){S.cats[i].n=v;if(S.budgets[old]!=null){S.budgets[v]=S.budgets[old];delete S.budgets[old]}
+      S.spends.forEach(x=>{if(x.c===old)x.c=v});if(cFilter===old)cFilter=v;syncCats();save()}renderSettings()});
+  q("[data-b]").forEach(e=>e.onchange=()=>{S.budgets[S.cats[e.dataset.b].n]=Math.max(0,parseFloat(e.value)||0);save();renderSettings()});
+  q("[data-f]").forEach(e=>e.onchange=()=>{S.cats[e.dataset.f].f=e.value;save();renderSettings()});
+  q("[data-g]").forEach(e=>e.onchange=()=>{S.cats[e.dataset.g].g=e.value;syncCats();save();renderSettings()});
+  q("[data-r]:not([disabled])").forEach(e=>e.onclick=()=>{const c=S.cats.splice(e.dataset.r,1)[0];delete S.budgets[c.n];syncCats();save();renderSettings()});
   const tot=f=>S.cats.filter(c=>c.f===f).reduce((t,c)=>t+(+S.budgets[c.n]||0),0);
   $("btot").textContent=inr(tot("m"))+" / month";$("btoty").textContent=inr(tot("y"))+" / year";
+  $("btoteq").textContent=inr(tot("m")*12+tot("y"));
+  const cg=$("cg"),cv=cg.value;cg.innerHTML=S.groups.map(g=>`<option>${esc(g)}</option>`).join("");if(S.groups.includes(cv))cg.value=cv;
 }
 $("addC").onclick=()=>{const n=$("cn").value.trim().slice(0,30);if(!n||S.cats.some(c=>c.n.toLowerCase()===n.toLowerCase()))return;
-  S.cats.push({n,f:$("cf2").value});$("cn").value="";syncCats();save();renderSettings()};
+  const g=$("cg").value||"Other";S.cats.push({n,f:$("cf2").value,g});openG.add(g);$("cn").value="";syncCats();save();renderSettings()};
+$("addG").onclick=()=>{const g=$("gn").value.trim().slice(0,30);if(!g||S.groups.includes(g))return;
+  S.groups.push(g);openG.add(g);$("gn").value="";syncCats();save();renderSettings()};
+let tplArm=false;
+$("tpl").onclick=()=>{if(!tplArm){tplArm=true;$("tpl").textContent="Tap again to replace all segments and budgets";
+    setTimeout(()=>{tplArm=false;$("tpl").textContent="Load my budget sheet"},5000);return}
+  tplArm=false;$("tpl").textContent="Load my budget sheet";applyTemplate();cFilter="All";gFilter="All";syncCats();save();render();$("dmsg").textContent="Budget sheet loaded. Older expenses keep their old segment names as extra segments; you can move or rename them here."};
 $("exp").onclick=async()=>{
   const data=JSON.stringify(S,null,2);
   try{const d=await claude.use("downloads");if(d){await d.save({filename:"tasks-spends-backup.json",data});$("dmsg").textContent="";return}}catch(e){}
@@ -381,9 +453,10 @@ function buildXlsx(){
   const sp=S.spends.slice().sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:a.id-b.id);
   const months=[...new Set(sp.map(x=>x.d.slice(0,7)))].sort();
   const sheets=[
-    ["Expenses",[["Date","Segment","Note","Amount (INR)"],...sp.map(x=>[x.d,x.c,x.n||"",x.a])],[12,16,32,14]],
+    ["Expenses",[["Date","Group","Segment","Note","Amount (INR)"],...sp.map(x=>[x.d,gOf(x.c),x.c,x.n||"",x.a])],[12,22,22,32,14]],
+    ["Monthly by group",[["Month",...S.groups,"Total"],...months.map(m=>{const r=S.groups.map(g=>sum(sp.filter(x=>x.d.startsWith(m)&&gOf(x.c)===g)));return[m,...r,r.reduce((a,b)=>a+b,0)]})],[10,...S.groups.map(()=>16),12]],
     ["Monthly summary",[["Month",...CATS,"Total"],...months.map(m=>{const r=CATS.map(c=>sum(sp.filter(x=>x.d.startsWith(m)&&x.c===c)));return[m,...r,r.reduce((a,b)=>a+b,0)]})],[10,...CATS.map(()=>13),12]],
-    ["Budgets",[["Segment","Frequency","Budget (INR)"],...S.cats.map(c=>[c.n,c.f==="y"?"Annual":"Monthly",+S.budgets[c.n]||0])],[18,12,14]],
+    ["Budgets",[["Group","Segment","Frequency","Budget (INR)","Per month (INR)","Per year (INR)"],...S.cats.map(c=>{const b=+S.budgets[c.n]||0;return[c.g,c.n,c.f==="y"?"Annual":"Monthly",b,Math.round(c.f==="y"?b/12:b),c.f==="y"?b:b*12]})],[22,22,12,14,15,14]],
     ["Investments",[["Date","Type","Name","Invested (INR)","Current value (INR)","Gain (INR)","Maturity date","Rate % p.a."],
       ...S.invests.slice().sort((a,b)=>a.d<b.d?-1:1).map(x=>[x.d,x.t,x.n||"",x.a,x.cv==null?"":x.cv,x.cv==null?"":x.cv-x.a,x.m||"",x.r||""])],[12,10,28,15,18,12,14,12]],
     ["Tasks",[["Task","Due date","Priority","Status"],...S.tasks.map(x=>[x.t,x.due||"",x.hi?"High":"Normal",x.done?"Done":"Open"])],[40,12,10,10]]
