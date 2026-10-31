@@ -234,19 +234,30 @@ $("addT").onclick=()=>{const t=$("tt").value.trim();if(!t)return;
   S.tasks.unshift({id:Date.now(),t,due:$("td").value||today(),hi:$("tp").value==="1",done:false});
   $("tt").value="";$("td").value=today();$("tp").value="0";save();render()};
 $("tt").addEventListener("keydown",e=>{if(e.key==="Enter")$("addT").click()});
+let editR=null;
 function renderTasks(){
   const f=[["active","Active"],["done","Done"],["all","All"]];
   $("tf").innerHTML=f.map(([k,l])=>`<button class="chip ${tFilter===k?"on":""}" data-k="${k}">${l}</button>`).join("");
-  $("tf").querySelectorAll("button").forEach(b=>b.onclick=()=>{tFilter=b.dataset.k;render()});
-  let list=S.tasks.filter(x=>tFilter==="all"||(tFilter==="done")===x.done);
+  $("tf").querySelectorAll("button").forEach(b=>b.onclick=()=>{tFilter=b.dataset.k;editR=null;render()});
+  // a task being edited stays visible even if its status just moved it out of this filter
+  let list=S.tasks.filter(x=>tFilter==="all"||(tFilter==="done")===x.done||x.id===editR);
   list.sort((a,b)=>(b.hi-a.hi)||((a.due||"9")>(b.due||"9")?1:-1));
   const td=today();
-  $("tl").innerHTML=list.length?list.map(x=>`<div class="item ${x.done?"done":""}">
+  $("tl").innerHTML=list.length?list.map(x=>`<div class="item ${x.done?"done":""}" style="flex-wrap:wrap">
     <input type="checkbox" data-c="${x.id}" ${x.done?"checked":""}>
-    <div class="t">${esc(x.t)}<small>${x.hi?'<span class="pill hi">High</span> ':""}${x.due?`<span class="${!x.done&&x.due<td?"over":""}">${x.due<td&&!x.done?"Overdue · ":"Due "}${x.due}</span>`:""}</small></div>
-    <button class="ghost" data-d="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">Nothing here</div>';
-  $("tl").querySelectorAll("[data-c]").forEach(e=>e.onchange=()=>{const x=S.tasks.find(y=>y.id==e.dataset.c);x.done=e.checked;save();render()});
-  $("tl").querySelectorAll("[data-d]").forEach(e=>e.onclick=()=>{S.tasks=S.tasks.filter(y=>y.id!=e.dataset.d);save();render()});
+    <div class="t">${esc(x.t)}<small>${x.hi?'<span class="pill hi">High</span> ':""}${x.due?`<span class="${!x.done&&x.due<td?"over":""}">${x.due<td&&!x.done?"Overdue · ":"Due "}${x.due}</span>`:""}${x.done&&x.dn?` · Done ${x.dn}`:""}</small>
+      ${x.r&&x.id!==editR?`<small class="rm" data-e="${x.id}" style="cursor:pointer;font-style:italic">“${esc(x.r)}”</small>`:""}</div>
+    <button class="ghost" data-e="${x.id}" aria-label="Remarks">✎</button>
+    <button class="ghost" data-d="${x.id}" aria-label="Delete">✕</button>
+    ${x.id===editR?`<div class="row" style="flex-basis:100%;margin:0 0 4px 32px;align-items:center"><input data-r="${x.id}" value="${esc(x.r||"")}" placeholder="Remarks (optional)" maxlength="300"><button class="ghost" data-ok="${x.id}" aria-label="Save remark" style="color:var(--ink)">OK</button></div>`:""}
+    </div>`).join(""):'<div class="empty">Nothing here</div>';
+  const q=a=>$("tl").querySelectorAll(a);
+  q("[data-c]").forEach(e=>e.onchange=()=>{const x=S.tasks.find(y=>y.id==e.dataset.c);x.done=e.checked;x.dn=e.checked?today():"";editR=x.id;save();render()});
+  q("[data-d]").forEach(e=>e.onclick=()=>{S.tasks=S.tasks.filter(y=>y.id!=e.dataset.d);if(editR==e.dataset.d)editR=null;save();render()});
+  q("[data-e]").forEach(e=>e.onclick=()=>{editR=editR==e.dataset.e?null:+e.dataset.e;render()});
+  q("[data-r]").forEach(e=>{e.oninput=()=>{S.tasks.find(y=>y.id==e.dataset.r).r=e.value.trim();save()};
+    e.onkeydown=ev=>{if(ev.key==="Enter"){editR=null;render()}}});
+  q("[data-ok]").forEach(e=>e.onclick=()=>{editR=null;render()});
 }
 
 /* ---------- spending ---------- */
@@ -254,6 +265,7 @@ $("sd").value=today();$("td").value=today();
 $("addS").onclick=()=>{const a=parseFloat($("sa").value);if(!(a>0))return;
   S.spends.unshift({id:Date.now(),a,c:$("sc").value,n:$("sn").value.trim(),d:$("sd").value||today()});
   $("sa").value="";$("sn").value="";$("sd").value=today();save();render()};
+$("sc").onchange=()=>{cFilter=$("sc").value;gFilter=gOf(cFilter);render()};
 const sum=a=>a.reduce((s,x)=>s+x.a,0);
 let per="month", anchor=new Date(), rFrom=today(), rTo=today();
 const PK=[["day","Day"],["week","Week"],["month","Month"],["year","Year"],["range","Range"]];
@@ -275,6 +287,7 @@ $("rFrom").onchange=e=>{rFrom=e.target.value||today();render()};$("rTo").onchang
 const inR=(x,B)=>x.d>=B.s&&x.d<=B.e;
 function renderSpend(){
   const td=today();
+  if(cFilter!=="All"&&$("sc").value!==cFilter)$("sc").value=cFilter;
   $("pk").innerHTML=PK.map(([k,l])=>`<button class="chip ${per===k?"on":""}" data-k="${k}">${l}</button>`).join("");
   $("pk").querySelectorAll("button").forEach(x=>x.onclick=()=>{per=x.dataset.k;if(per!=="range")anchor=new Date();render()});
   const isR=per==="range";
