@@ -234,7 +234,7 @@ $("addT").onclick=()=>{const t=$("tt").value.trim();if(!t)return;
   S.tasks.unshift({id:Date.now(),t,due:$("td").value||today(),hi:$("tp").value==="1",done:false});
   $("tt").value="";$("td").value=today();$("tp").value="0";save();render()};
 $("tt").addEventListener("keydown",e=>{if(e.key==="Enter")$("addT").click()});
-let editR=null;
+let editR=null, editFull=false;
 function renderTasks(){
   const f=[["active","Active"],["done","Done"],["all","All"]];
   $("tf").innerHTML=f.map(([k,l])=>`<button class="chip ${tFilter===k?"on":""}" data-k="${k}">${l}</button>`).join("");
@@ -249,12 +249,20 @@ function renderTasks(){
       ${x.r&&x.id!==editR?`<small class="rm" data-e="${x.id}" style="cursor:pointer;font-style:italic">“${esc(x.r)}”</small>`:""}</div>
     <button class="ghost" data-e="${x.id}" aria-label="Remarks">✎</button>
     <button class="ghost" data-d="${x.id}" aria-label="Delete">✕</button>
-    ${x.id===editR?`<div class="row" style="flex-basis:100%;margin:0 0 4px 32px;align-items:center"><input data-r="${x.id}" value="${esc(x.r||"")}" placeholder="Remarks (optional)" maxlength="300"><button class="ghost" data-ok="${x.id}" aria-label="Save remark" style="color:var(--ink)">OK</button></div>`:""}
+    ${x.id===editR?`<div style="flex-basis:100%;margin:0 0 4px 32px">
+      <div class="row" style="margin:0;align-items:center"><input data-r="${x.id}" value="${esc(x.r||"")}" placeholder="Remarks (optional)" maxlength="300"><button class="ghost" data-ok="${x.id}" aria-label="Close" style="color:var(--ink)">OK</button></div>
+      ${editFull?`<div class="row"><input data-et="${x.id}" value="${esc(x.t)}" maxlength="200" aria-label="Task"></div>
+      <div class="row"><input type="date" data-ed="${x.id}" value="${x.due||""}"><select data-ep="${x.id}"><option value="0" ${x.hi?"":"selected"}>Normal</option><option value="1" ${x.hi?"selected":""}>High</option></select></div>`:""}
+    </div>`:""}
     </div>`).join(""):'<div class="empty">Nothing here</div>';
   const q=a=>$("tl").querySelectorAll(a);
-  q("[data-c]").forEach(e=>e.onchange=()=>{const x=S.tasks.find(y=>y.id==e.dataset.c);x.done=e.checked;x.dn=e.checked?today():"";editR=x.id;save();render()});
+  q("[data-c]").forEach(e=>e.onchange=()=>{const x=S.tasks.find(y=>y.id==e.dataset.c);x.done=e.checked;x.dn=e.checked?today():"";editR=x.id;editFull=false;save();render()});
   q("[data-d]").forEach(e=>e.onclick=()=>{S.tasks=S.tasks.filter(y=>y.id!=e.dataset.d);if(editR==e.dataset.d)editR=null;save();render()});
-  q("[data-e]").forEach(e=>e.onclick=()=>{editR=editR==e.dataset.e?null:+e.dataset.e;render()});
+  q("button[data-e]").forEach(e=>e.onclick=()=>{const id=+e.dataset.e;if(editR===id&&editFull){editR=null}else{editR=id;editFull=true}render()});
+  q("small[data-e]").forEach(e=>e.onclick=()=>{editR=+e.dataset.e;editFull=false;render()});
+  q("[data-et]").forEach(e=>e.onchange=()=>{const v=e.value.trim();if(v){S.tasks.find(y=>y.id==e.dataset.et).t=v;save()}else e.value=S.tasks.find(y=>y.id==e.dataset.et).t});
+  q("[data-ed]").forEach(e=>e.onchange=()=>{S.tasks.find(y=>y.id==e.dataset.ed).due=e.value;save()});
+  q("[data-ep]").forEach(e=>e.onchange=()=>{S.tasks.find(y=>y.id==e.dataset.ep).hi=e.value==="1";save()});
   q("[data-r]").forEach(e=>{e.oninput=()=>{S.tasks.find(y=>y.id==e.dataset.r).r=e.value.trim();save()};
     e.onkeydown=ev=>{if(ev.key==="Enter"){editR=null;render()}}});
   q("[data-ok]").forEach(e=>e.onclick=()=>{editR=null;render()});
@@ -266,6 +274,8 @@ $("addS").onclick=()=>{const a=parseFloat($("sa").value);if(!(a>0))return;
   S.spends.unshift({id:Date.now(),a,c:$("sc").value,n:$("sn").value.trim(),d:$("sd").value||today()});
   $("sa").value="";$("sn").value="";$("sd").value=today();save();render()};
 $("sc").onchange=()=>{cFilter=$("sc").value;gFilter=gOf(cFilter);render()};
+let editX=null;
+const segOptions=sel=>S.groups.filter(g=>subsOf(g).length).map(g=>`<optgroup label="${esc(g)}">${subsOf(g).map(n=>`<option ${n===sel?"selected":""}>${esc(n)}</option>`).join("")}</optgroup>`).join("");
 const sum=a=>a.reduce((s,x)=>s+x.a,0);
 let per="month", anchor=new Date(), rFrom=today(), rTo=today();
 const PK=[["day","Day"],["week","Week"],["month","Month"],["year","Year"],["range","Range"]];
@@ -357,12 +367,21 @@ function renderSpend(){
   // list for selected period + selection
   const list=scope.slice().sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id);
   $("lh").textContent=(label==="All"?"Expenses":label)+" · "+list.length;
-  $("sl").innerHTML=list.length?list.map(x=>`<div class="item"><div class="t">${esc(x.n||x.c)}<small>${esc(gOf(x.c))} › ${esc(x.c)} · ${x.d}</small></div><span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`).join(""):'<div class="empty">No expenses</div>';
-  $("sl").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.spends=S.spends.filter(y=>y.id!=e.dataset.x);save();render()});
+  $("sl").innerHTML=list.length?list.map(x=>`<div class="item" style="flex-wrap:wrap"><div class="t">${esc(x.n||x.c)}<small>${esc(gOf(x.c))} › ${esc(x.c)} · ${x.d}</small></div><span class="amt">${inr(x.a)}</span><button class="ghost" data-xe="${x.id}" aria-label="Edit">✎</button><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button>
+    ${x.id===editX?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><input type="number" inputmode="decimal" data-ea value="${x.a}" min="0" step="0.01" aria-label="Amount"><input type="date" data-ed2 value="${x.d}"></div>
+      <div class="row"><select data-ec>${segOptions(x.c)}</select><input data-en value="${esc(x.n||"")}" placeholder="Note (optional)" maxlength="80"></div>
+      <div class="row" style="align-items:center"><button class="b" data-es="${x.id}" style="margin-top:6px">Save</button><button class="link" data-ex style="margin-left:8px">Cancel</button></div></div>`:""}</div>`).join(""):'<div class="empty">No expenses</div>';
+  $("sl").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.spends=S.spends.filter(y=>y.id!=e.dataset.x);if(editX==e.dataset.x)editX=null;save();render()});
+  $("sl").querySelectorAll("[data-xe]").forEach(e=>e.onclick=()=>{editX=editX==e.dataset.xe?null:+e.dataset.xe;render()});
+  $("sl").querySelectorAll("[data-ex]").forEach(e=>e.onclick=()=>{editX=null;render()});
+  $("sl").querySelectorAll("[data-es]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),x=S.spends.find(y=>y.id==e.dataset.es);
+    const a=parseFloat(box.querySelector("[data-ea]").value);if(!(a>0))return;
+    x.a=a;x.d=box.querySelector("[data-ed2]").value||x.d;x.c=box.querySelector("[data-ec]").value;x.n=box.querySelector("[data-en]").value.trim();
+    editX=null;save();render()});
 }
 /* ---------- investments ---------- */
 const INV=["SIP","Gold","FD","RD","Stocks","Other"];
-let iFilter="All";
+let iFilter="All", editI=null;
 $("it").innerHTML=INV.map(c=>`<option>${c}</option>`).join("");
 $("id").value=today();
 const isDebt=t=>t==="FD"||t==="RD";
@@ -381,11 +400,22 @@ function renderInvest(){
   $("ifl").querySelectorAll("button").forEach(b=>b.onclick=()=>{iFilter=b.dataset.k;render()});
   const td=today(),list=all.filter(x=>iFilter==="All"||x.t===iFilter).sort((a,b)=>a.d<b.d?1:a.d>b.d?-1:b.id-a.id);
   $("il").innerHTML=list.length?list.map(x=>{const gain=curVal(x)-x.a;
-    return `<div class="item"><div class="t">${esc(x.n||x.t)}<small>${x.t} · ${x.d}${x.m?` · matures ${x.m}${x.m<td?" (due)":""}`:""}${x.r?` · ${x.r}%`:""}</small>
+    return `<div class="item" style="flex-wrap:wrap"><div class="t">${esc(x.n||x.t)}<small>${x.t} · ${x.d}${x.m?` · matures ${x.m}${x.m<td?" (due)":""}`:""}${x.r?` · ${x.r}%`:""}</small>
       <small>Now ₹ <input type="number" inputmode="decimal" data-v="${x.id}" value="${x.cv==null?"":x.cv}" placeholder="${Math.round(x.a)}" style="width:90px;display:inline-block;padding:2px 0"> ${x.cv!=null?`<span class="${gain<0?"over":""}">${gain<0?"▼":"▲"} ${inr(Math.abs(gain))}</span>`:""}</small></div>
-      <span class="amt">${inr(x.a)}</span><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button></div>`}).join(""):'<div class="empty">No investments</div>';
+      <span class="amt">${inr(x.a)}</span><button class="ghost" data-ie="${x.id}" aria-label="Edit">✎</button><button class="ghost" data-x="${x.id}" aria-label="Delete">✕</button>
+      ${x.id===editI?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><select data-it>${INV.map(t=>`<option ${t===x.t?"selected":""}>${t}</option>`).join("")}</select><input data-in value="${esc(x.n||"")}" placeholder="Name" maxlength="60"></div>
+        <div class="row"><input type="number" inputmode="decimal" data-ia value="${x.a}" min="0" step="0.01" aria-label="Amount"><input type="date" data-id value="${x.d}"></div>
+        <div class="row"><input type="date" data-im value="${x.m||""}" aria-label="Maturity date"><input type="number" inputmode="decimal" data-ir value="${x.r||""}" placeholder="Rate % p.a." step="0.01"></div>
+        <div class="row" style="align-items:center"><button class="b" data-is="${x.id}" style="margin-top:6px">Save</button><button class="link" data-ix style="margin-left:8px">Cancel</button></div></div>`:""}</div>`}).join(""):'<div class="empty">No investments</div>';
   $("il").querySelectorAll("[data-v]").forEach(e=>e.onchange=()=>{const x=S.invests.find(y=>y.id==e.dataset.v);x.cv=e.value===""?null:Math.max(0,parseFloat(e.value)||0);save();render()});
-  $("il").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.invests=S.invests.filter(y=>y.id!=e.dataset.x);save();render()});
+  $("il").querySelectorAll("[data-x]").forEach(e=>e.onclick=()=>{S.invests=S.invests.filter(y=>y.id!=e.dataset.x);if(editI==e.dataset.x)editI=null;save();render()});
+  $("il").querySelectorAll("[data-ie]").forEach(e=>e.onclick=()=>{editI=editI==e.dataset.ie?null:+e.dataset.ie;render()});
+  $("il").querySelectorAll("[data-ix]").forEach(e=>e.onclick=()=>{editI=null;render()});
+  $("il").querySelectorAll("[data-is]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),x=S.invests.find(y=>y.id==e.dataset.is);
+    const a=parseFloat(box.querySelector("[data-ia]").value);if(!(a>0))return;
+    x.t=box.querySelector("[data-it]").value;x.n=box.querySelector("[data-in]").value.trim();x.a=a;x.d=box.querySelector("[data-id]").value||x.d;
+    x.m=isDebt(x.t)?box.querySelector("[data-im]").value:"";x.r=isDebt(x.t)?(parseFloat(box.querySelector("[data-ir]").value)||0):0;
+    editI=null;save();render()});
 }
 
 /* ---------- settings ---------- */

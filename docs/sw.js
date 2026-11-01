@@ -1,6 +1,6 @@
 // Offline support: cache the app shell on install, serve from cache first.
 // Bump VERSION whenever any app file changes so phones pick up the update.
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "tasks-spends-" + VERSION;
 const FILES = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png", "./icon-maskable-512.png"];
 
