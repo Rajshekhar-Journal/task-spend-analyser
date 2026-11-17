@@ -19,8 +19,9 @@ input[type=date]::-webkit-calendar-picker-indicator{cursor:pointer}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Roboto,sans-serif;padding-bottom:64px}
 header{padding:20px 4px 8px;font-weight:600;font-size:28px;letter-spacing:-.02em}
 .wrap{max-width:520px;margin:0 auto;padding:0 20px}
-.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:center;gap:18px;background:var(--bg);border-top:1px solid var(--line);z-index:5}
-.tabs button{padding:16px 8px;border:0;background:none;color:var(--mute);font-size:15px;cursor:pointer}
+.tabs{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-around;gap:0;background:var(--bg);border-top:1px solid var(--line);z-index:5}
+.tabs button{flex:1;padding:16px 4px;border:0;background:none;color:var(--mute);font-size:14px;cursor:pointer}
+.tabs b.bdg{display:inline-block;min-width:16px;height:16px;line-height:16px;margin-left:3px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;font-weight:600;vertical-align:2px}
 .tabs button.on{color:var(--ink);font-weight:600}
 .card{margin:22px 0}
 h3{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--mute);letter-spacing:.04em;text-transform:uppercase}
@@ -124,6 +125,23 @@ select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
   </div>
 </section>
 
+<section id="p-bills" class="hide">
+  <div class="card">
+    <div class="stats"><div><b id="bOver">0</b><span>Overdue</span></div><div><b id="bSoon">0</b><span>Due in 7 days</span></div><div><b id="b30">₹0</b><span>Next 30 days</span></div></div>
+    <button class="link" id="bIcs" style="margin-top:10px">Add all reminders to my calendar (.ics)</button>
+    <div id="bmsg" style="color:var(--mute);font-size:13px"></div>
+  </div>
+  <div class="card" id="bl"></div>
+  <div class="card">
+    <h3>Add card or EMI</h3>
+    <div class="row"><select id="bk"><option value="card">Credit card</option><option value="loan">Loan EMI</option></select><input id="bn" placeholder="Name (e.g. HDFC card)" maxlength="40"></div>
+    <div class="row"><input id="bs" type="number" inputmode="numeric" min="1" max="31" placeholder="Bill day (1-31)"><input id="bd" type="number" inputmode="numeric" min="1" max="31" placeholder="Due day (1-31)"></div>
+    <div class="row"><input id="ba" type="number" inputmode="decimal" min="0" placeholder="Amount ₹ (optional)"><input id="br" type="number" inputmode="numeric" min="0" max="15" placeholder="Remind days before" value="3"></div>
+    <div class="row"><button class="b" id="addB">Add</button></div>
+    <div style="color:var(--mute);font-size:13px;margin-top:8px">Bill day is when the statement is generated (optional for loans). Due day is the payment due date.</div>
+  </div>
+</section>
+
 <section id="p-settings" class="hide">
   <div class="card">
     <h3>Budget by group &amp; segment (₹)</h3>
@@ -150,7 +168,7 @@ select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
 </section>
 </div>
 
-<nav class="tabs"><button id="tb-tasks" class="on">Tasks</button><button id="tb-spend">Spending</button><button id="tb-invest">Invest</button><button id="tb-settings">Settings</button></nav>
+<nav class="tabs"><button id="tb-tasks" class="on">Tasks</button><button id="tb-spend">Spending</button><button id="tb-invest">Invest</button><button id="tb-bills">Bills<b class="bdg hide" id="bdg"></b></button><button id="tb-settings">Settings</button></nav>
 
 <script>
 const TEMPLATE=[
@@ -197,7 +215,7 @@ const esc=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"
 const inr=n=>"₹"+Math.round(n).toLocaleString("en-IN");
 const iso=d=>{const z=new Date(d.getTime()-d.getTimezoneOffset()*6e4);return z.toISOString().slice(0,10)};
 const today=()=>iso(new Date());
-let S={tasks:[],spends:[],invests:[],budgets:{},cats:[],groups:[]}, tab="tasks", tFilter="active", cFilter="All", gFilter="All", db=null, docRef=null, saveTimer=null;
+let S={tasks:[],spends:[],invests:[],bills:[],budgets:{},cats:[],groups:[]}, tab="tasks", tFilter="active", cFilter="All", gFilter="All", db=null, docRef=null, saveTimer=null;
 
 /* ---------- storage: localStorage + durable db when available ---------- */
 function lsGet(){try{return JSON.parse(localStorage.getItem("tsapp")||"null")}catch(e){return null}}
@@ -208,7 +226,7 @@ function save(){
   clearTimeout(saveTimer);
   saveTimer=setTimeout(()=>{try{docRef.set({json:JSON.stringify(S)}).catch(()=>{})}catch(e){}},600);
 }
-function adopt(o){if(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)){S={tasks:o.tasks,spends:o.spends,invests:Array.isArray(o.invests)?o.invests:[],budgets:(o.budgets&&typeof o.budgets==="object")?o.budgets:{},cats:Array.isArray(o.cats)?o.cats:[],groups:Array.isArray(o.groups)?o.groups:[]};syncCats()}}
+function adopt(o){if(o&&Array.isArray(o.tasks)&&Array.isArray(o.spends)){S={tasks:o.tasks,spends:o.spends,invests:Array.isArray(o.invests)?o.invests:[],bills:Array.isArray(o.bills)?o.bills:[],budgets:(o.budgets&&typeof o.budgets==="object")?o.budgets:{},cats:Array.isArray(o.cats)?o.cats:[],groups:Array.isArray(o.groups)?o.groups:[]};syncCats()}}
 adopt(lsGet());syncCats();
 (async()=>{
   try{
@@ -224,7 +242,7 @@ adopt(lsGet());syncCats();
 })();
 
 /* ---------- tabs ---------- */
-const TITLES={tasks:"Tasks",spend:"Spending",invest:"Investments",settings:"Settings"};
+const TITLES={tasks:"Tasks",spend:"Spending",invest:"Investments",bills:"Bills",settings:"Settings"};
 function setTab(t){tab=t;for(const k in TITLES){$("p-"+k).classList.toggle("hide",k!==t);$("tb-"+k).classList.toggle("on",k===t)}
   $("title").textContent=TITLES[t];render()}
 for(const k in TITLES)$("tb-"+k).onclick=()=>setTab(k);
@@ -502,6 +520,8 @@ function buildXlsx(){
     ["Budgets",[["Group","Segment","Frequency","Budget (INR)","Per month (INR)","Per year (INR)"],...S.cats.map(c=>{const b=+S.budgets[c.n]||0;return[c.g,c.n,c.f==="y"?"Annual":"Monthly",b,Math.round(c.f==="y"?b/12:b),c.f==="y"?b:b*12]})],[22,22,12,14,15,14]],
     ["Investments",[["Date","Type","Name","Invested (INR)","Current value (INR)","Gain (INR)","Maturity date","Rate % p.a."],
       ...S.invests.slice().sort((a,b)=>a.d<b.d?-1:1).map(x=>[x.d,x.t,x.n||"",x.a,x.cv==null?"":x.cv,x.cv==null?"":x.cv-x.a,x.m||"",x.r||""])],[12,10,28,15,18,12,14,12]],
+    ["Bills",[["Name","Type","Bill day","Due day","Amount (INR)","Remind days before","Next due","Status"],...S.bills.map(b=>{const i=billInfo(b);return[b.n,b.k==="loan"?"Loan EMI":"Credit card",b.sd||"",b.dd,b.a||"",b.rm,iso(i.due),i.days<0?"Overdue":i.days===0?"Due today":"Due in "+i.days+" days"]})],[24,12,10,10,14,18,12,16]],
+    ["Bill payments",[["Name","Due month","Paid on","Amount (INR)"],...S.bills.flatMap(b=>(b.pays||[]).slice().sort((x,y)=>x.d<y.d?-1:1).map(p=>[b.n,p.ym,p.d,p.a||""]))],[24,12,12,14]],
     ["Tasks",[["Task","Due date","Priority","Status"],...S.tasks.map(x=>[x.t,x.due||"",x.hi?"High":"Normal",x.done?"Done":"Open"])],[40,12,10,10]]
   ];
   const X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
@@ -515,19 +535,108 @@ function buildXlsx(){
     ...sheets.map((sh,i)=>f(`xl/worksheets/sheet${i+1}.xml`,sheetXml(sh[1],sh[2])))
   ]);
 }
+async function saveFile(name,blob){
+  try{const d=await claude.use("downloads");if(d){try{await d.save({filename:name,data:blob})}catch(e1){await d.save({filename:name,data:new Uint8Array(await blob.arrayBuffer())})}return"saved"}}catch(e){}
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();return"downloaded";
+}
 $("xl").onclick=async()=>{
   const msg=t=>$("dmsg").textContent=t,name="tasks-spends-"+today()+".xlsx";
-  try{
-    const blob=buildXlsx();
-    try{const d=await claude.use("downloads");if(d){try{await d.save({filename:name,data:blob})}catch(e1){await d.save({filename:name,data:new Uint8Array(await blob.arrayBuffer())})}msg("");return}}catch(e){}
-    const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();a.remove();msg("Exported "+name);
-  }catch(e){msg("Export failed")}
+  try{const r=await saveFile(name,buildXlsx());msg(r==="downloaded"?"Exported "+name:"")}catch(e){msg("Export failed")}
 };
+
+
+/* ---------- bills: credit cards and loan EMIs ---------- */
+const D8=s=>new Date(s+"T00:00:00"), DAY=864e5;
+const monthDay=(y,m,d)=>{const f=new Date(y,m,1),dim=new Date(f.getFullYear(),f.getMonth()+1,0).getDate();return new Date(f.getFullYear(),f.getMonth(),Math.min(d,dim))};
+const dueOn=(b,y,m)=>monthDay(y,m,b.dd);
+const stmtFor=(b,due)=>b.sd?monthDay(due.getFullYear(),due.getMonth()+(b.sd<b.dd?0:-1),b.sd):null;
+const ymOf=d=>iso(d).slice(0,7);
+function billInfo(b){
+  const t=D8(today());let cur=null;
+  for(let i=-1;i<=6&&!cur;i++){const due=dueOn(b,t.getFullYear(),t.getMonth()+i);
+    if(iso(due)<(b.created||"0000"))continue;
+    if((b.pays||[]).some(p=>p.ym===ymOf(due)))continue;
+    cur=due}
+  if(!cur)cur=dueOn(b,t.getFullYear(),t.getMonth()+7);
+  const stmt=stmtFor(b,cur);
+  const last=(b.pays||[]).slice().sort((x,y)=>x.d<y.d?1:-1)[0]||null;
+  return{due:cur,key:ymOf(cur),days:Math.round((cur-t)/DAY),stmt,stmtDays:stmt?Math.round((stmt-t)/DAY):null,last};
+}
+const needsAttention=(b,i)=>i.days<=b.rm||(i.stmtDays!=null&&i.stmtDays>=0&&i.stmtDays<=1);
+function updateBadge(){
+  const n=S.bills.filter(b=>needsAttention(b,billInfo(b))).length,e=$("bdg");
+  e.textContent=n;e.classList.toggle("hide",!n);
+}
+let payB=null,editB=null;
+const dm=d=>fmt(d,{day:"numeric",month:"short"});
+function renderBills(){
+  const rows=S.bills.map(b=>({b,i:billInfo(b)})).sort((x,y)=>x.i.due-y.i.due);
+  $("bOver").textContent=rows.filter(r=>r.i.days<0).length;
+  $("bSoon").textContent=rows.filter(r=>r.i.days>=0&&r.i.days<=7).length;
+  $("b30").textContent=inr(rows.filter(r=>r.i.days<=30).reduce((t,r)=>t+(+r.b.a||0),0));
+  $("bIcs").classList.toggle("hide",!rows.length);
+  $("bl").innerHTML=rows.length?rows.map(({b,i})=>{
+    const over=i.days<0,soon=!over&&i.days<=b.rm;
+    const dueTxt=(over?`Overdue by ${-i.days} day${i.days===-1?"":"s"} (was ${dm(i.due)})`:i.days===0?"Due today":`Due ${dm(i.due)} · in ${i.days} day${i.days===1?"":"s"}`)+(b.a?` · ${inr(b.a)}`:"");
+    const stTxt=i.stmt?(i.stmtDays<=0?`Bill generated ${dm(i.stmt)}`:`Bill generates ${dm(i.stmt)} · in ${i.stmtDays} day${i.stmtDays===1?"":"s"}`):"";
+    return `<div class="item" style="flex-wrap:wrap"><div class="t">${esc(b.n)} <span class="pill">${b.k==="loan"?"EMI":"Card"}</span>
+      ${stTxt?`<small style="${i.stmtDays>=0&&i.stmtDays<=1?"color:var(--ink);font-weight:600":""}">${stTxt}</small>`:""}
+      <small class="${over?"over":""}" style="${soon?"color:var(--ink);font-weight:600":""}">${dueTxt}</small>
+      ${i.last?`<small>Last paid ${i.last.d}${i.last.a?" · "+inr(i.last.a):""}</small>`:""}</div>
+      <button class="ghost" data-bp="${b.id}" style="color:var(--ink);font-size:14px">Paid</button><button class="ghost" data-be="${b.id}" aria-label="Edit">✎</button><button class="ghost" data-bx="${b.id}" aria-label="Delete">✕</button>
+      ${b.id===payB?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><input type="number" inputmode="decimal" data-pa value="${b.a||""}" placeholder="Amount paid ₹" min="0" step="0.01"><input type="date" data-pd value="${today()}"></div>
+        <div class="row" style="align-items:center"><button class="b" data-ps="${b.id}" style="margin-top:6px">Mark ${dm(i.due)} bill as paid</button><button class="link" data-pc style="margin-left:8px">Cancel</button></div></div>`:""}
+      ${b.id===editB?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><select data-ek><option value="card" ${b.k==="card"?"selected":""}>Credit card</option><option value="loan" ${b.k==="loan"?"selected":""}>Loan EMI</option></select><input data-en2 value="${esc(b.n)}" maxlength="40"></div>
+        <div class="row"><input type="number" inputmode="numeric" data-es2 value="${b.sd||""}" min="1" max="31" placeholder="Bill day"><input type="number" inputmode="numeric" data-ed3 value="${b.dd}" min="1" max="31" placeholder="Due day"></div>
+        <div class="row"><input type="number" inputmode="decimal" data-ea2 value="${b.a||""}" min="0" placeholder="Amount ₹"><input type="number" inputmode="numeric" data-er2 value="${b.rm}" min="0" max="15" placeholder="Remind days before"></div>
+        ${(b.pays||[]).length?`<div style="margin-top:8px;font-size:13px;color:var(--mute)">Payments<br>${(b.pays||[]).slice().sort((x,y)=>x.d<y.d?1:-1).slice(0,8).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center">${p.d} · for ${p.ym}${p.a?" · "+inr(p.a):""}<button class="ghost" data-up="${b.id}|${p.ym}" aria-label="Undo payment" style="font-size:14px">✕</button></div>`).join("")}</div>`:""}
+        <div class="row" style="align-items:center"><button class="b" data-eb="${b.id}" style="margin-top:6px">Save</button><button class="link" data-ec2 style="margin-left:8px">Cancel</button><button class="link" data-cal="${b.id}" style="margin-left:auto">Calendar</button></div></div>`:""}
+      </div>`}).join(""):'<div class="empty">No cards or EMIs yet</div>';
+  const q=a=>$("bl").querySelectorAll(a),val=(box,a)=>box.querySelector(a).value;
+  q("[data-bp]").forEach(e=>e.onclick=()=>{payB=payB==e.dataset.bp?null:+e.dataset.bp;editB=null;renderBills()});
+  q("[data-pc]").forEach(e=>e.onclick=()=>{payB=null;renderBills()});
+  q("[data-ps]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),b=S.bills.find(x=>x.id==e.dataset.ps),i=billInfo(b);
+    (b.pays=b.pays||[]).push({ym:i.key,d:val(box,"[data-pd]")||today(),a:parseFloat(val(box,"[data-pa]"))||0});payB=null;save();render()});
+  q("[data-be]").forEach(e=>e.onclick=()=>{editB=editB==e.dataset.be?null:+e.dataset.be;payB=null;renderBills()});
+  q("[data-ec2]").forEach(e=>e.onclick=()=>{editB=null;renderBills()});
+  q("[data-eb]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),b=S.bills.find(x=>x.id==e.dataset.eb);
+    const n=val(box,"[data-en2]").trim(),dd=parseInt(val(box,"[data-ed3]"));if(!n||!(dd>=1&&dd<=31))return;
+    const sd=parseInt(val(box,"[data-es2]"));b.k=val(box,"[data-ek]");b.n=n;b.dd=dd;b.sd=sd>=1&&sd<=31?sd:0;b.a=parseFloat(val(box,"[data-ea2]"))||0;
+    const rm=parseInt(val(box,"[data-er2]"));b.rm=rm>=0&&rm<=15?rm:3;editB=null;save();render()});
+  q("[data-up]").forEach(e=>e.onclick=()=>{const[id,ym]=e.dataset.up.split("|"),b=S.bills.find(x=>x.id==id);b.pays=b.pays.filter(p=>p.ym!==ym);save();render()});
+  q("[data-bx]").forEach(e=>e.onclick=()=>{S.bills=S.bills.filter(x=>x.id!=e.dataset.bx);save();render()});
+  q("[data-cal]").forEach(e=>e.onclick=()=>exportIcs([S.bills.find(x=>x.id==e.dataset.cal)]));
+}
+$("addB").onclick=()=>{const n=$("bn").value.trim(),dd=parseInt($("bd").value);if(!n||!(dd>=1&&dd<=31))return;
+  const sd=parseInt($("bs").value),rm=parseInt($("br").value);
+  S.bills.push({id:Date.now(),k:$("bk").value,n,sd:sd>=1&&sd<=31?sd:0,dd,a:parseFloat($("ba").value)||0,rm:rm>=0&&rm<=15?rm:3,created:today(),pays:[]});
+  $("bn").value="";$("bs").value="";$("bd").value="";$("ba").value="";$("br").value="3";save();render()};
+$("bIcs").onclick=()=>exportIcs(S.bills);
+
+// calendar file: one event per due date (and bill date) for the next 12 months, each with phone alarms
+function exportIcs(list){
+  const E=t=>String(t).replace(/\\/g,"\\\\").replace(/;/g,"\;").replace(/,/g,"\\,").replace(/\r?\n/g,"\\n");
+  const d8=d=>iso(d).replace(/-/g,""),stamp=new Date().toISOString().replace(/[-:]/g,"").replace(/\.\d{3}/,"");
+  const L=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//Tasks and Spends//EN","CALSCALE:GREGORIAN"],t0=D8(today());
+  const ev=(uid,sum,desc,day,alarms)=>{L.push("BEGIN:VEVENT","UID:"+uid+"@tasks-spends","DTSTAMP:"+stamp,"DTSTART;VALUE=DATE:"+d8(day),"DTEND;VALUE=DATE:"+d8(new Date(day.getFullYear(),day.getMonth(),day.getDate()+1)),"SUMMARY:"+E(sum),"DESCRIPTION:"+E(desc));
+    alarms.forEach(tr=>L.push("BEGIN:VALARM","ACTION:DISPLAY","DESCRIPTION:"+E(sum),"TRIGGER:"+tr,"END:VALARM"));L.push("END:VEVENT")};
+  let count=0;
+  list.forEach(b=>{for(let i=0;i<12;i++){
+    const due=dueOn(b,t0.getFullYear(),t0.getMonth()+i),key=ymOf(due);
+    if(due>=t0&&!(b.pays||[]).some(p=>p.ym===key)){
+      const al=[];if(b.rm>0)al.push("-PT"+(b.rm*24-9)+"H");al.push("PT9H");   // reminder at 9:00, b.rm days before and on the due day
+      ev(b.id+"-due-"+d8(due),`${b.n} ${b.k==="loan"?"EMI":"bill"} due${b.a?" "+inr(b.a):""}`,`Payment due for ${b.n}`,due,al);count++}
+    const st=stmtFor(b,due);
+    if(st&&st>=t0){ev(b.id+"-bill-"+d8(st),`${b.n} bill generated`,`Statement date for ${b.n}`,st,["PT9H"]);count++}}});
+  L.push("END:VCALENDAR");
+  const blob=new Blob([L.join("\r\n")],{type:"text/calendar"}),name=(list.length===1?list[0].n.replace(/[^\w]+/g,"-"):"bills")+"-reminders.ics";
+  saveFile(name,blob).then(r=>{$("bmsg").textContent=r==="saved"?"":`${count} reminders saved as ${name}. Open the file to add them to your calendar.`})
+}
 
 // Offline support (only where service workers are allowed: hosted over https)
 try{if("serviceWorker" in navigator&&/^https?:$/.test(location.protocol))navigator.serviceWorker.register("sw.js").catch(()=>{})}catch(e){}
 
-function render(){({tasks:renderTasks,spend:renderSpend,invest:renderInvest,settings:renderSettings})[tab]()}
+function render(){({tasks:renderTasks,spend:renderSpend,invest:renderInvest,bills:renderBills,settings:renderSettings})[tab]();updateBadge()}
 render();
 </script>
 </body>
