@@ -129,6 +129,7 @@ select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
   <div class="card">
     <div class="stats"><div><b id="bOver">0</b><span>Overdue</span></div><div><b id="bSoon">0</b><span>Due in 7 days</span></div><div><b id="b30">₹0</b><span>Next 30 days</span></div></div>
     <button class="link" id="bIcs" style="margin-top:10px">Add all reminders to my calendar (.ics)</button>
+    <div style="color:var(--mute);font-size:13px">Alarms ring at 9 PM on the due date and on the bill date, plus the number of days before the due date set for each bill (3 by default).</div>
     <div id="bmsg" style="color:var(--mute);font-size:13px"></div>
   </div>
   <div class="card" id="bl"></div>
@@ -624,10 +625,10 @@ function exportIcs(list){
   list.forEach(b=>{for(let i=0;i<12;i++){
     const due=dueOn(b,t0.getFullYear(),t0.getMonth()+i),key=ymOf(due);
     if(due>=t0&&!(b.pays||[]).some(p=>p.ym===key)){
-      const al=[];if(b.rm>0)al.push("-PT"+(b.rm*24-9)+"H");al.push("PT9H");   // reminder at 9:00, b.rm days before and on the due day
+      const al=[];if(b.rm>0)al.push("-PT"+(b.rm*24-21)+"H");al.push("PT21H");   // alarms at 9 PM: b.rm days before the due date, and on the due date
       ev(b.id+"-due-"+d8(due),`${b.n} ${b.k==="loan"?"EMI":"bill"} due${b.a?" "+inr(b.a):""}`,`Payment due for ${b.n}`,due,al);count++}
     const st=stmtFor(b,due);
-    if(st&&st>=t0){ev(b.id+"-bill-"+d8(st),`${b.n} bill generated`,`Statement date for ${b.n}`,st,["PT9H"]);count++}}});
+    if(st&&st>=t0){ev(b.id+"-bill-"+d8(st),`${b.n} bill generated`,`Statement date for ${b.n}`,st,["PT21H"]);count++}}});
   L.push("END:VCALENDAR");
   const blob=new Blob([L.join("\r\n")],{type:"text/calendar"}),name=(list.length===1?list[0].n.replace(/[^\w]+/g,"-"):"bills")+"-reminders.ics";
   saveFile(name,blob).then(r=>{$("bmsg").textContent=r==="saved"?"":`${count} reminders saved as ${name}. Open the file to add them to your calendar.`})
