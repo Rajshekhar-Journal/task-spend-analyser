@@ -156,19 +156,22 @@ button.b.pri{background:var(--ink);color:var(--bg)}
     <div class="stats"><div><b id="bPaid">0</b><span>Paid</span></div><div><b id="bPend">₹0</b><span>Still to pay</span></div><div><b id="bOver">0</b><span>Overdue</span></div></div>
     <div class="bar"><i id="bBar" style="width:0"></i></div>
   </div>
-  <div class="card" id="bl"></div>
   <div class="card">
-    <button class="link" id="bIcs" style="margin-top:10px">Add all reminders to my calendar (.ics)</button>
-    <div style="color:var(--mute);font-size:13px">Alarms ring at 9 PM on the due date and on the bill date, plus the number of days before the due date set for each bill (3 by default).</div>
-    <div id="bmsg" style="color:var(--mute);font-size:13px"></div>
-  </div>
-  <div class="card">
-    <h3>Add card or EMI</h3>
+    <button class="b" id="bAddToggle">+ Add new card / EMI details</button>
+    <div id="bAddBox" class="hide">
+    <h3 style="margin-top:16px">Add card or EMI</h3>
     <div class="row"><select id="bk"><option value="card">Credit card</option><option value="loan">Loan EMI</option></select><input id="bn" placeholder="Name (e.g. HDFC card)" maxlength="40"></div>
     <div class="row"><input id="bs" type="number" inputmode="numeric" min="1" max="31" placeholder="Bill day (1-31)"><input id="bd" type="number" inputmode="numeric" min="1" max="31" placeholder="Due day (1-31)"></div>
     <div class="row"><input id="ba" type="number" inputmode="decimal" min="0" placeholder="Amount ₹ (optional)"><input id="br" type="number" inputmode="numeric" min="0" max="15" placeholder="Remind days before" value="3"></div>
     <div class="row"><button class="b" id="addB">Add</button></div>
     <div style="color:var(--mute);font-size:13px;margin-top:8px">Bill day is when the statement is generated (optional for loans). Due day is the payment due date.</div>
+    </div>
+  </div>
+  <div class="card" id="bl"></div>
+  <div class="card">
+    <button class="link" id="bIcs" style="margin-top:10px">Add all reminders to my calendar (.ics)</button>
+    <div style="color:var(--mute);font-size:13px">Alarms ring at 9 PM on the due date and on the bill date, plus the number of days before the due date set for each bill (3 by default).</div>
+    <div id="bmsg" style="color:var(--mute);font-size:13px"></div>
   </div>
 </section>
 
@@ -387,13 +390,16 @@ function renderSpend(){
       :`<div style="font-size:13px;color:var(--mute)">No ${f==="y"?"annual":"monthly"} budget for ${esc(cFilter)} — set it in Settings.</div>`}
   $("segBud").innerHTML=bh;
   // chart: groups when viewing all, segments of the group otherwise
-  const rows=gFilter==="All"
+  const gTot=gFilter==="All"?0:sum(cur.filter(x=>gOf(x.c)===gFilter));
+  const rows=cFilter!=="All"
+    ?[{k:cFilter,v:sum(cur.filter(x=>x.c===cFilter))}]
+    :gFilter==="All"
     ?S.groups.map(g=>({k:g,v:sum(cur.filter(x=>gOf(x.c)===g))}))
     :subsOf(gFilter).map(c=>({k:c,v:sum(cur.filter(x=>x.c===c))}));
-  const by=rows.filter(x=>x.v>0).sort((a,b)=>b.v-a.v),rt=by.reduce((t,x)=>t+x.v,0);
-  $("ch3").textContent=gFilter==="All"?"By group":gFilter+" · by segment";
+  const by=rows.filter(x=>x.v>0).sort((a,b)=>b.v-a.v),rt=cFilter!=="All"?gTot:by.reduce((t,x)=>t+x.v,0);
+  $("ch3").textContent=cFilter!=="All"?cFilter:gFilter==="All"?"By group":gFilter+" · by segment";
   $("chart").innerHTML=by.length?by.map(x=>`<div style="margin:8px 0;cursor:pointer" data-k="${esc(x.k)}">
-    <div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(x.k)}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/rt*100)}%</span></div>
+    <div style="display:flex;justify-content:space-between;font-size:14px"><span>${esc(x.k)}</span><span class="amt">${inr(x.v)} · ${Math.round(x.v/rt*100)}%${cFilter!=="All"?" of "+esc(gFilter):""}</span></div>
     <div class="bar" style="margin:3px 0"><i style="width:${x.v/by[0].v*100}%"></i></div></div>`).join(""):'<div class="empty">No spending in this period</div>';
   $("chart").querySelectorAll("[data-k]").forEach(x=>x.onclick=()=>{if(gFilter==="All"){gFilter=x.dataset.k;cFilter="All"}else cFilter=x.dataset.k;render()});
 
@@ -676,8 +682,10 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&openB)closeSheet()}
 $("addB").onclick=()=>{const n=$("bn").value.trim(),dd=parseInt($("bd").value);if(!n||!(dd>=1&&dd<=31))return;
   const sd=parseInt($("bs").value),rm=parseInt($("br").value);
   S.bills.push({id:Date.now(),k:$("bk").value,n,sd:sd>=1&&sd<=31?sd:0,dd,a:parseFloat($("ba").value)||0,rm:rm>=0&&rm<=15?rm:3,created:today(),pays:[]});
-  $("bn").value="";$("bs").value="";$("bd").value="";$("ba").value="";$("br").value="3";save();render()};
+  $("bn").value="";$("bs").value="";$("bd").value="";$("ba").value="";$("br").value="3";bAddShow(false);save();render()};
 $("bIcs").onclick=()=>exportIcs(S.bills);
+const bAddShow=on=>{$("bAddBox").classList.toggle("hide",!on);$("bAddToggle").textContent=on?"✕ Close":"+ Add new card / EMI details";if(on)$("bn").focus()};
+$("bAddToggle").onclick=()=>bAddShow($("bAddBox").classList.contains("hide"));
 
 // calendar file: one event per due date (and bill date) for the next 12 months, each with phone alarms
 function exportIcs(list){
