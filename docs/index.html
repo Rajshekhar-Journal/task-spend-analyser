@@ -57,6 +57,31 @@ input[type=checkbox]{width:20px;height:20px;accent-color:var(--ink);flex:none;pa
 .gbody{padding:8px 0 4px 10px}
 select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
 .link{background:none;border:0;color:var(--mute);font-size:13px;padding:8px 0;cursor:pointer;text-decoration:underline}
+
+.mnav{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.mnav .ghost{font-size:26px;padding:2px 14px}
+.mt{text-align:center}.mt b{display:block;font-size:18px;font-weight:600}.mt .link{padding:0}
+#bl{margin-top:6px}
+.bc{display:flex;align-items:center;gap:10px;padding:14px 12px;margin-bottom:10px;border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.bc.paid{opacity:.62}
+.bc.over{border-color:var(--bad)}.bc.soon,.bc.today{border-color:var(--ink)}
+.bc .bt{flex:1;min-width:0}.bn{font-weight:600;word-break:break-word}.bc small{display:block;color:var(--mute);font-size:13px}
+.chev{color:var(--mute);font-size:20px}
+.sp{font-size:12px;font-weight:600;padding:3px 9px;border-radius:99px;border:1px solid var(--line);color:var(--mute);white-space:nowrap}
+.sp.paid{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.sp.over{border-color:var(--bad);color:var(--bad)}.sp.soon,.sp.today{border-color:var(--ink);color:var(--ink)}
+#bsheet{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center}
+#bsheet.hide{display:none}
+.sback{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.sbox{position:relative;width:100%;max-width:560px;max-height:86vh;overflow:auto;background:var(--bg);border-radius:18px 18px 0 0;padding:18px 18px 28px;box-shadow:0 -6px 30px rgba(0,0,0,.25)}
+.shead{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-size:18px}
+.sban{border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-weight:600;margin-bottom:8px}
+.sban small{display:block;font-weight:400;color:var(--mute)}
+.sban.paid{background:var(--ink);color:var(--bg);border-color:var(--ink)}.sban.paid small{color:var(--bg);opacity:.7}
+.sban.over{border-color:var(--bad);color:var(--bad)}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}.kv span{color:var(--mute)}.kv b{font-weight:500;text-align:right}
+.sact{display:flex;gap:8px;margin-top:14px}.sact .b{margin-top:0;flex:1;padding:10px 6px}
+button.b.pri{background:var(--ink);color:var(--bg)}
 </style>
 </head>
 <body>
@@ -127,12 +152,16 @@ select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
 
 <section id="p-bills" class="hide">
   <div class="card">
-    <div class="stats"><div><b id="bOver">0</b><span>Overdue</span></div><div><b id="bSoon">0</b><span>Due in 7 days</span></div><div><b id="b30">₹0</b><span>Next 30 days</span></div></div>
+    <div class="mnav"><button class="ghost" id="bPrev" aria-label="Previous month">‹</button><div class="mt"><b id="bMon"></b><button class="link" id="bNow">This month</button></div><button class="ghost" id="bNext" aria-label="Next month">›</button></div>
+    <div class="stats"><div><b id="bPaid">0</b><span>Paid</span></div><div><b id="bPend">₹0</b><span>Still to pay</span></div><div><b id="bOver">0</b><span>Overdue</span></div></div>
+    <div class="bar"><i id="bBar" style="width:0"></i></div>
+  </div>
+  <div class="card" id="bl"></div>
+  <div class="card">
     <button class="link" id="bIcs" style="margin-top:10px">Add all reminders to my calendar (.ics)</button>
     <div style="color:var(--mute);font-size:13px">Alarms ring at 9 PM on the due date and on the bill date, plus the number of days before the due date set for each bill (3 by default).</div>
     <div id="bmsg" style="color:var(--mute);font-size:13px"></div>
   </div>
-  <div class="card" id="bl"></div>
   <div class="card">
     <h3>Add card or EMI</h3>
     <div class="row"><select id="bk"><option value="card">Credit card</option><option value="loan">Loan EMI</option></select><input id="bn" placeholder="Name (e.g. HDFC card)" maxlength="40"></div>
@@ -169,6 +198,7 @@ select.mini{font-size:12px;color:var(--mute);padding:2px 0;width:auto}
 </section>
 </div>
 
+<div id="bsheet" class="hide"></div>
 <nav class="tabs"><button id="tb-tasks" class="on">Tasks</button><button id="tb-spend">Spending</button><button id="tb-invest">Invest</button><button id="tb-bills">Bills<b class="bdg hide" id="bdg"></b></button><button id="tb-settings">Settings</button></nav>
 
 <script>
@@ -568,46 +598,81 @@ function updateBadge(){
   const n=S.bills.filter(b=>needsAttention(b,billInfo(b))).length,e=$("bdg");
   e.textContent=n;e.classList.toggle("hide",!n);
 }
-let payB=null,editB=null;
+let bM=(()=>{const t=D8(today());return{y:t.getFullYear(),m:t.getMonth()}})(),openB=null,bMode="view";
 const dm=d=>fmt(d,{day:"numeric",month:"short"});
-function renderBills(){
-  const rows=S.bills.map(b=>({b,i:billInfo(b)})).sort((x,y)=>x.i.due-y.i.due);
-  $("bOver").textContent=rows.filter(r=>r.i.days<0).length;
-  $("bSoon").textContent=rows.filter(r=>r.i.days>=0&&r.i.days<=7).length;
-  $("b30").textContent=inr(rows.filter(r=>r.i.days<=30).reduce((t,r)=>t+(+r.b.a||0),0));
-  $("bIcs").classList.toggle("hide",!rows.length);
-  $("bl").innerHTML=rows.length?rows.map(({b,i})=>{
-    const over=i.days<0,soon=!over&&i.days<=b.rm;
-    const dueTxt=(over?`Overdue by ${-i.days} day${i.days===-1?"":"s"} (was ${dm(i.due)})`:i.days===0?"Due today":`Due ${dm(i.due)} · in ${i.days} day${i.days===1?"":"s"}`)+(b.a?` · ${inr(b.a)}`:"");
-    const stTxt=i.stmt?(i.stmtDays<=0?`Bill generated ${dm(i.stmt)}`:`Bill generates ${dm(i.stmt)} · in ${i.stmtDays} day${i.stmtDays===1?"":"s"}`):"";
-    return `<div class="item" style="flex-wrap:wrap"><div class="t">${esc(b.n)} <span class="pill">${b.k==="loan"?"EMI":"Card"}</span>
-      ${stTxt?`<small style="${i.stmtDays>=0&&i.stmtDays<=1?"color:var(--ink);font-weight:600":""}">${stTxt}</small>`:""}
-      <small class="${over?"over":""}" style="${soon?"color:var(--ink);font-weight:600":""}">${dueTxt}</small>
-      ${i.last?`<small>Last paid ${i.last.d}${i.last.a?" · "+inr(i.last.a):""}</small>`:""}</div>
-      <button class="ghost" data-bp="${b.id}" style="color:var(--ink);font-size:14px">Paid</button><button class="ghost" data-be="${b.id}" aria-label="Edit">✎</button><button class="ghost" data-bx="${b.id}" aria-label="Delete">✕</button>
-      ${b.id===payB?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><input type="number" inputmode="decimal" data-pa value="${b.a||""}" placeholder="Amount paid ₹" min="0" step="0.01"><input type="date" data-pd value="${today()}"></div>
-        <div class="row" style="align-items:center"><button class="b" data-ps="${b.id}" style="margin-top:6px">Mark ${dm(i.due)} bill as paid</button><button class="link" data-pc style="margin-left:8px">Cancel</button></div></div>`:""}
-      ${b.id===editB?`<div style="flex-basis:100%;padding-bottom:6px"><div class="row"><select data-ek><option value="card" ${b.k==="card"?"selected":""}>Credit card</option><option value="loan" ${b.k==="loan"?"selected":""}>Loan EMI</option></select><input data-en2 value="${esc(b.n)}" maxlength="40"></div>
-        <div class="row"><input type="number" inputmode="numeric" data-es2 value="${b.sd||""}" min="1" max="31" placeholder="Bill day"><input type="number" inputmode="numeric" data-ed3 value="${b.dd}" min="1" max="31" placeholder="Due day"></div>
-        <div class="row"><input type="number" inputmode="decimal" data-ea2 value="${b.a||""}" min="0" placeholder="Amount ₹"><input type="number" inputmode="numeric" data-er2 value="${b.rm}" min="0" max="15" placeholder="Remind days before"></div>
-        ${(b.pays||[]).length?`<div style="margin-top:8px;font-size:13px;color:var(--mute)">Payments<br>${(b.pays||[]).slice().sort((x,y)=>x.d<y.d?1:-1).slice(0,8).map(p=>`<div style="display:flex;justify-content:space-between;align-items:center">${p.d} · for ${p.ym}${p.a?" · "+inr(p.a):""}<button class="ghost" data-up="${b.id}|${p.ym}" aria-label="Undo payment" style="font-size:14px">✕</button></div>`).join("")}</div>`:""}
-        <div class="row" style="align-items:center"><button class="b" data-eb="${b.id}" style="margin-top:6px">Save</button><button class="link" data-ec2 style="margin-left:8px">Cancel</button><button class="link" data-cal="${b.id}" style="margin-left:auto">Calendar</button></div></div>`:""}
-      </div>`}).join(""):'<div class="empty">No cards or EMIs yet</div>';
-  const q=a=>$("bl").querySelectorAll(a),val=(box,a)=>box.querySelector(a).value;
-  q("[data-bp]").forEach(e=>e.onclick=()=>{payB=payB==e.dataset.bp?null:+e.dataset.bp;editB=null;renderBills()});
-  q("[data-pc]").forEach(e=>e.onclick=()=>{payB=null;renderBills()});
-  q("[data-ps]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),b=S.bills.find(x=>x.id==e.dataset.ps),i=billInfo(b);
-    (b.pays=b.pays||[]).push({ym:i.key,d:val(box,"[data-pd]")||today(),a:parseFloat(val(box,"[data-pa]"))||0});payB=null;save();render()});
-  q("[data-be]").forEach(e=>e.onclick=()=>{editB=editB==e.dataset.be?null:+e.dataset.be;payB=null;renderBills()});
-  q("[data-ec2]").forEach(e=>e.onclick=()=>{editB=null;renderBills()});
-  q("[data-eb]").forEach(e=>e.onclick=()=>{const box=e.closest(".item"),b=S.bills.find(x=>x.id==e.dataset.eb);
-    const n=val(box,"[data-en2]").trim(),dd=parseInt(val(box,"[data-ed3]"));if(!n||!(dd>=1&&dd<=31))return;
-    const sd=parseInt(val(box,"[data-es2]"));b.k=val(box,"[data-ek]");b.n=n;b.dd=dd;b.sd=sd>=1&&sd<=31?sd:0;b.a=parseFloat(val(box,"[data-ea2]"))||0;
-    const rm=parseInt(val(box,"[data-er2]"));b.rm=rm>=0&&rm<=15?rm:3;editB=null;save();render()});
-  q("[data-up]").forEach(e=>e.onclick=()=>{const[id,ym]=e.dataset.up.split("|"),b=S.bills.find(x=>x.id==id);b.pays=b.pays.filter(p=>p.ym!==ym);save();render()});
-  q("[data-bx]").forEach(e=>e.onclick=()=>{S.bills=S.bills.filter(x=>x.id!=e.dataset.bx);save();render()});
-  q("[data-cal]").forEach(e=>e.onclick=()=>exportIcs([S.bills.find(x=>x.id==e.dataset.cal)]));
+// status of one bill for the month being viewed
+function billMonth(b,y,m){
+  const due=dueOn(b,y,m);if(iso(due)<(b.created||"0000"))return null;
+  const ym=ymOf(due),pay=(b.pays||[]).find(p=>p.ym===ym)||null,days=Math.round((due-D8(today()))/DAY);
+  const st=pay?"paid":days<0?"over":days===0?"today":days<=b.rm?"soon":"up";
+  const label=pay?"Paid":st==="over"?`Overdue ${-days}d`:st==="today"?"Due today":st==="soon"?`Due in ${days}d`:"Upcoming";
+  return{b,due,ym,pay,days,st,label,stmt:stmtFor(b,due)};
 }
+function renderBills(){
+  const {y,m}=bM,first=new Date(y,m,1);
+  $("bMon").textContent=fmt(first,{month:"long",year:"numeric"});
+  const rows=S.bills.map(b=>billMonth(b,y,m)).filter(Boolean);
+  const rank={over:0,today:1,soon:2,up:3,paid:4};
+  rows.sort((a,c)=>rank[a.st]-rank[c.st]||a.due-c.due);
+  const paid=rows.filter(r=>r.pay),pend=rows.filter(r=>!r.pay),amt=r=>+r.b.a||0;
+  $("bPaid").textContent=paid.length+" / "+rows.length;
+  $("bPend").textContent=inr(pend.reduce((t,r)=>t+amt(r),0));
+  $("bOver").textContent=rows.filter(r=>r.st==="over").length;
+  $("bBar").style.width=(rows.length?paid.length/rows.length*100:0)+"%";
+  $("bIcs").classList.toggle("hide",!S.bills.length);
+  $("bl").innerHTML=rows.length?rows.map(r=>{const b=r.b;
+    return `<div class="bc ${r.st}" data-open="${b.id}" role="button" tabindex="0">
+      <div class="bt"><div class="bn">${esc(b.n)} <span class="pill">${b.k==="loan"?"EMI":"Card"}</span></div>
+        <small>${r.pay?`Paid ${dm(D8(r.pay.d))}${r.pay.a?" · "+inr(r.pay.a):""}`:`Due ${dm(r.due)}${b.a?" · "+inr(b.a):""}`}</small></div>
+      <span class="sp ${r.st}">${r.pay?"✓ ":""}${r.label}</span><span class="chev">›</span></div>`}).join(""):'<div class="empty">No bills this month</div>';
+  $("bl").querySelectorAll("[data-open]").forEach(e=>{const go=()=>{openB=+e.dataset.open;bMode="view";renderSheet()};e.onclick=go;e.onkeydown=ev=>{if(ev.key==="Enter")go()}});
+  renderSheet();
+}
+function closeSheet(){openB=null;$("bsheet").classList.add("hide")}
+function renderSheet(){
+  const sh=$("bsheet"),b=S.bills.find(x=>x.id===openB);
+  if(!b){sh.classList.add("hide");return}
+  const r=billMonth(b,bM.y,bM.m)||{due:dueOn(b,bM.y,bM.m),pay:null,st:"up",label:"Before start",stmt:stmtFor(b,dueOn(b,bM.y,bM.m)),ym:ymOf(dueOn(b,bM.y,bM.m)),days:0};
+  const mon=fmt(new Date(bM.y,bM.m,1),{month:"long",year:"numeric"});
+  const hist=(b.pays||[]).slice().sort((x,y)=>x.ym<y.ym?1:-1).slice(0,12);
+  let body="";
+  if(bMode==="pay"){
+    body=`<div class="row"><input type="number" inputmode="decimal" id="sPa" value="${b.a||""}" placeholder="Amount paid ₹" min="0" step="0.01"><input type="date" id="sPd" value="${today()}"></div>
+      <button class="b" id="sPs">Mark ${mon} as paid</button><button class="link" id="sCancel">Cancel</button>`;
+  }else if(bMode==="edit"){
+    body=`<div class="row"><select id="sEk"><option value="card" ${b.k==="card"?"selected":""}>Credit card</option><option value="loan" ${b.k==="loan"?"selected":""}>Loan EMI</option></select><input id="sEn" value="${esc(b.n)}" maxlength="40"></div>
+      <div class="row"><input type="number" inputmode="numeric" id="sEs" value="${b.sd||""}" min="1" max="31" placeholder="Bill day"><input type="number" inputmode="numeric" id="sEd" value="${b.dd}" min="1" max="31" placeholder="Due day"></div>
+      <div class="row"><input type="number" inputmode="decimal" id="sEa" value="${b.a||""}" min="0" placeholder="Amount ₹"><input type="number" inputmode="numeric" id="sEr" value="${b.rm}" min="0" max="15" placeholder="Remind days before"></div>
+      <button class="b" id="sEsave">Save</button><button class="link" id="sCancel">Cancel</button>`;
+  }else{
+    body=`<div class="sban ${r.st}">${r.pay?`✓ Paid on ${dm(D8(r.pay.d))}${r.pay.a?" · "+inr(r.pay.a):""}`:r.st==="over"?`Overdue by ${-r.days} day${r.days===-1?"":"s"}`:r.st==="today"?"Due today":`Due in ${r.days} day${r.days===1?"":"s"}`}<small>${mon}</small></div>
+      <div class="kv"><span>Due date</span><b>${fmt(r.due,{weekday:"short",day:"numeric",month:"short",year:"numeric"})}</b></div>
+      <div class="kv"><span>Bill generated</span><b>${r.stmt?fmt(r.stmt,{day:"numeric",month:"short"}):"Not set"}</b></div>
+      <div class="kv"><span>Amount</span><b>${b.a?inr(b.a):"Not set"}</b></div>
+      <div class="kv"><span>Reminder</span><b>${b.rm?b.rm+" days before, ":""}on the day, 9 PM</b></div>
+      <div class="sact">${r.pay?`<button class="b" id="sUndo">Undo payment</button>`:`<button class="b pri" id="sPay">Mark as paid</button>`}
+        <button class="b" id="sEdit">Edit</button><button class="b" id="sCal">Calendar</button></div>
+      <h3 style="margin-top:18px">Payment history</h3>
+      ${hist.length?hist.map(p=>`<div class="kv"><span>${fmt(new Date(+p.ym.slice(0,4),+p.ym.slice(5)-1,1),{month:"short",year:"numeric"})}</span><b>${dm(D8(p.d))}${p.a?" · "+inr(p.a):""}</b></div>`).join(""):'<div class="empty" style="padding:6px 0">No payments yet</div>'}
+      <button class="link" id="sDel" style="margin-top:14px">Delete this ${b.k==="loan"?"EMI":"card"}</button>`;
+  }
+  sh.innerHTML=`<div class="sback" id="sBack"></div><div class="sbox"><div class="shead"><div><div class="bn">${esc(b.n)} <span class="pill">${b.k==="loan"?"EMI":"Card"}</span></div></div><button class="ghost" id="sClose" aria-label="Close">✕</button></div>${body}</div>`;
+  sh.classList.remove("hide");
+  const g=id=>$(id);g("sBack").onclick=g("sClose").onclick=closeSheet;
+  const c=g("sCancel");if(c)c.onclick=()=>{bMode="view";renderSheet()};
+  if(g("sPay"))g("sPay").onclick=()=>{bMode="pay";renderSheet()};
+  if(g("sEdit"))g("sEdit").onclick=()=>{bMode="edit";renderSheet()};
+  if(g("sCal"))g("sCal").onclick=()=>exportIcs([b]);
+  if(g("sUndo"))g("sUndo").onclick=()=>{b.pays=(b.pays||[]).filter(p=>p.ym!==r.ym);save();render()};
+  if(g("sDel"))g("sDel").onclick=()=>{if(!confirm("Delete "+b.n+" and its payment history?"))return;S.bills=S.bills.filter(x=>x.id!==b.id);closeSheet();save();render()};
+  if(g("sPs"))g("sPs").onclick=()=>{(b.pays=b.pays||[]).push({ym:r.ym,d:g("sPd").value||today(),a:parseFloat(g("sPa").value)||0});bMode="view";save();render()};
+  if(g("sEsave"))g("sEsave").onclick=()=>{const n=g("sEn").value.trim(),dd=parseInt(g("sEd").value);if(!n||!(dd>=1&&dd<=31))return;
+    const sd=parseInt(g("sEs").value),rm=parseInt(g("sEr").value);b.k=g("sEk").value;b.n=n;b.dd=dd;b.sd=sd>=1&&sd<=31?sd:0;b.a=parseFloat(g("sEa").value)||0;b.rm=rm>=0&&rm<=15?rm:3;bMode="view";save();render()};
+}
+const bShift=n=>{const d=new Date(bM.y,bM.m+n,1);bM={y:d.getFullYear(),m:d.getMonth()};renderBills()};
+$("bPrev").onclick=()=>bShift(-1);$("bNext").onclick=()=>bShift(1);
+$("bNow").onclick=()=>{const t=D8(today());bM={y:t.getFullYear(),m:t.getMonth()};renderBills()};
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&openB)closeSheet()});
 $("addB").onclick=()=>{const n=$("bn").value.trim(),dd=parseInt($("bd").value);if(!n||!(dd>=1&&dd<=31))return;
   const sd=parseInt($("bs").value),rm=parseInt($("br").value);
   S.bills.push({id:Date.now(),k:$("bk").value,n,sd:sd>=1&&sd<=31?sd:0,dd,a:parseFloat($("ba").value)||0,rm:rm>=0&&rm<=15?rm:3,created:today(),pays:[]});
