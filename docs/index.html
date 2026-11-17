@@ -405,17 +405,9 @@ function renderSpend(){
 
   // insights for the selection, compared with the previous equal-length period
   const scope=cur.filter(inScope),ins=[],st=sum(scope);
-  let PB;
-  if(isR){const n=days;PB={s:iso(new Date(toD(B.s).getTime()-n*dayMs)),e:iso(new Date(toD(B.s).getTime()-dayMs))}}
-  else{const a=new Date(anchor);const y=a.getFullYear(),m=a.getMonth(),d=a.getDate();
-    const pr=per==="day"?new Date(y,m,d-1):per==="week"?new Date(y,m,d-7):per==="month"?new Date(y,m-1,1):new Date(y-1,m,1);PB=bounds(pr,per)}
-  const pt=sum(S.spends.filter(x=>inR(x,PB)&&inScope(x)));
   if(!scope.length)ins.push(`No ${label==="All"?"":esc(label)+" "}expenses in this period.`);
   else{
     ins.push(`<b>${esc(label)}</b>: ${inr(st)} in ${scope.length} expense${scope.length>1?"s":""}${label!=="All"&&tot?`, ${Math.round(st/tot*100)}% of total`:""}.`);
-    const big=scope.reduce((a,x)=>x.a>a.a?x:a);ins.push(`Biggest: ${inr(big.a)}${big.n?" ("+esc(big.n)+")":""} on ${big.d}.`);
-    if(pt>0){const ch=(st-pt)/pt*100;ins.push(`Vs previous period (${inr(pt)}): <span class="${ch>0?"over":""}">${ch>0?"▲":"▼"} ${Math.abs(Math.round(ch))}%</span>.`)}
-    if(B.e>=td&&B.s<=td&&per!=="day"){const tl=Math.round((toD(B.e)-toD(B.s))/dayMs)+1;ins.push(`At this pace, period end ≈ <b>${inr(st/days*tl)}</b>.`)}
   }
   $("ins").innerHTML=ins.map(i=>`<li>${i}</li>`).join("");
 
